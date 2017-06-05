@@ -1,0 +1,5 @@
+build
+dist
+LPA_Design.egg-info
+*.pyc
+*.ipynb_checkpoints
