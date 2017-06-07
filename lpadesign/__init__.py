@@ -8,5 +8,5 @@ Tools for designing plate experiments
 # https://packaging.python.org/en/latest/single_source_version.html
 __version__ = '0.1.0'
 
-import plate
-import inducer
+from . import plate
+from . import inducer
