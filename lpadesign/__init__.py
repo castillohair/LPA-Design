@@ -1,5 +1,5 @@
 """
-Tools for designing plate experiments
+Tools for designing LPA experiments with inducers
 
 """
 
