@@ -1,9 +1,10 @@
 import numpy
+import lpaprogram
 import platedesign
 import lpadesign
 
-# lpadesign requires LED calibration data
-lpadesign.LED_CALIBRATION_PATH = "../test/test_lpa_files/led-calibration"
+# lpaprogram requires LED calibration data
+lpaprogram.LED_CALIBRATION_PATH = "../supporting_files/led-calibration"
 
 # Experiment
 exp = platedesign.experiment.Experiment()
@@ -32,7 +33,7 @@ light_660.intensities = numpy.ones(24)*20.
 exp.add_inducer(light_660)
 
 # Plate for light-sensitive strain
-lpa = lpadesign.plate.LPA(name='Jennie')
+lpa = lpadesign.plate.LightPlate(name='P1', lpa_name='Jennie')
 lpa.cell_strain_name = 'Light sensing strain 1'
 lpa.media_vol = 16000.
 lpa.sample_vol = 500.
@@ -40,8 +41,8 @@ lpa.cell_setup_method = 'fixed_volume'
 lpa.cell_predilution = 100
 lpa.cell_predilution_vol = 1000
 lpa.cell_shot_vol = 5
-lpa.apply_inducer(inducer=light_520, apply_to='wells')
-lpa.apply_inducer(inducer=light_660, apply_to='wells')
+lpa.apply_inducer(inducer=light_520, apply_to='wells', led_channel=0)
+lpa.apply_inducer(inducer=light_660, apply_to='wells', led_channel=1)
 exp.add_plate(lpa)
 
 exp.generate()
