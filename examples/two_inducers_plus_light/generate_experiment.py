@@ -52,7 +52,7 @@ light_660.sync_shuffling(xyl)
 exp.add_inducer(light_660)
 
 # LPA array for light-sensing strain
-lpaarray = lpadesign.plate.LPAArray(
+lpaarray = lpadesign.plate.LightPlateArray(
     'PA1',
     array_n_rows=2,
     array_n_cols=2,

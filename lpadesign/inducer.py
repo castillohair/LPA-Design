@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 """
 Module that contains light inducer classes.
 
@@ -41,7 +42,7 @@ class LightInducer(platedesign.inducer.InducerBase):
     def __init__(self,
                  name,
                  led_layout,
-                 units='µmol/(m^2*s)',
+                 units=u'µmol/(m^2*s)',
                  id_prefix=None,
                  id_offset=0):
         # Store name, led layout name, and units
@@ -69,7 +70,7 @@ class LightInducer(platedesign.inducer.InducerBase):
         Header to be used in the dose table to specify intensities.
 
         """
-        return "{} Intensity ({})".format(self.name, self.units)
+        return u"{} Intensity ({})".format(self.name, self.units)
 
     @property
     def intensities(self):
