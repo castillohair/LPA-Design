@@ -1,3 +1,4 @@
+# -*- coding: UTF-8 -*-
 import numpy
 import lpaprogram
 import platedesign
@@ -9,14 +10,17 @@ lpaprogram.LED_CALIBRATION_PATH = "../supporting_files/led-calibration"
 # Experiment
 exp = platedesign.experiment.Experiment()
 exp.n_replicates = 5
-exp.randomize_inducers = True
-exp.measurement_template = '../supporting_files/template_FlowCal.xlsx'
-exp.plate_measurements = ['Final OD600', 'Incubation time (min)']
 exp.plate_locations = ['Jennie',
-                       'Kirk',
                        'Picard',
+                       'Kirk',
+                       'Shannen',
+                       'Sisko',
                        ]
-
+exp.randomize_inducers = True
+exp.randomize_plates = False
+exp.measurement_template = '../supporting_files/template_FlowCal.xlsx'
+exp.replicate_measurements = ['Date', 'Run by']
+exp.plate_measurements = ['Final OD600', 'Incubation time (min)']
 # Inducers
 # 520nm (green) light: log gradient
 light_520 = lpadesign.inducer.LightInducer(name='520nm Light',

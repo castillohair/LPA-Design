@@ -1,21 +1,32 @@
+# -*- coding: UTF-8 -*-
+import numpy
+import lpaprogram
 import platedesign
 import lpadesign
 
-# lpadesign requires LED calibration data
-lpadesign.LED_CALIBRATION_PATH = "../test/test_lpa_files/led-calibration"
+# lpaprogram requires LED calibration data
+lpaprogram.LED_CALIBRATION_PATH = "../supporting_files/led-calibration"
 
 # Experiment
 exp = platedesign.experiment.Experiment()
 exp.n_replicates = 5
-exp.randomize = True
+exp.plate_locations = ['Jennie',
+                       'Picard',
+                       'Kirk',
+                       'Shannen',
+                       'Sisko',
+                       ]
+exp.randomize_inducers = True
+exp.randomize_plates = False
 exp.measurement_template = '../supporting_files/template_FlowCal.xlsx'
+exp.replicate_measurements = ['Date', 'Run by']
 exp.plate_measurements = ['Final OD600', 'Incubation time (min)']
 
 # Light sensing strain will use a 2x2 plate array. It will have xylose and
 # alternating red and green light across 12 columns, and iptg across 8 rows.
 # Shuffling of light inducers should be synchronized with xylose.
 
-iptg = platedesign.inducer.ChemicalInducer(name='IPTG', units='uM')
+iptg = platedesign.inducer.ChemicalInducer(name='IPTG', units=u'µM')
 iptg.stock_conc = 1e6
 iptg.shot_vol = 5.
 iptg.set_gradient(min=0.5,
@@ -39,7 +50,7 @@ exp.add_inducer(xyl)
 light_520 = lpadesign.inducer.LightInducer(name='520nm Light',
                                            led_layout='520-2-KB',
                                            id_prefix='G')
-light_520.intensity = numpy.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1])*50
+light_520.intensities = numpy.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1])*50
 light_520.sync_shuffling(xyl)
 exp.add_inducer(light_520)
 
@@ -47,37 +58,39 @@ exp.add_inducer(light_520)
 light_660 = lpadesign.inducer.LightInducer(name='660nm Light',
                                            led_layout='660-LS',
                                            id_prefix='R')
-light_660.intensity = numpy.array([1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0])*20
+light_660.intensities = numpy.array([1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0])*20
 light_660.sync_shuffling(xyl)
 exp.add_inducer(light_660)
 
 # LPA array for light-sensing strain
-lpaarray = lpadesign.plate.LightPlateArray(
+platearray = lpadesign.plate.LPAPlateArray(
     'PA1',
     array_n_rows=2,
     array_n_cols=2,
-    lpa_names=['Jennie', 'Picard', 'Kirk', 'Shannen'],
-    lpa_n_rows=4,
-    lpa_n_cols=6)
-lpaarray.cell_strain_name = 'Light-Sensing Strain'
-lpaarray.media_vol = 16000.*4
-lpaarray.apply_inducer(inducer=xyl, apply_to='rows')
-lpaarray.apply_inducer(inducer=iptg, apply_to='cols')
-exp.add_plate(lpaarray)
+    plate_names=['P1', 'P2', 'P3', 'P4'],
+    plate_n_rows=4,
+    plate_n_cols=6)
+platearray.cell_strain_name = 'Light-Sensing Strain'
+platearray.total_media_vol = 16000.*4
+platearray.apply_inducer(inducer=light_520, apply_to='rows', led_channel=0)
+platearray.apply_inducer(inducer=light_660, apply_to='rows', led_channel=1)
+platearray.apply_inducer(inducer=xyl, apply_to='rows')
+platearray.apply_inducer(inducer=iptg, apply_to='cols')
+exp.add_plate(platearray)
 
 # Plate for autofluorescence control strain
 plate = platedesign.plate.Plate('P5', n_rows=4, n_cols=6)
 plate.cell_strain_name = 'Autofluorescence Control Strain'
 plate.samples_to_measure = 4
-plate.media_vol = 16000.
+plate.total_media_vol = 16000.
 exp.add_plate(plate)
 
 # Add common settings to plates
 for plate in exp.plates:
-    plate.sample_vol = 500.
-    plate.cell_setup_method = 'fixed_od600'
+    plate.sample_media_vol = 500.
+    plate.cell_setup_method = 'fixed_volume'
     plate.cell_predilution = 100
     plate.cell_predilution_vol = 1000
-    plate.cell_initial_od600 = 1e-5
+    plate.cell_shot_vol = 5
 
 exp.generate()

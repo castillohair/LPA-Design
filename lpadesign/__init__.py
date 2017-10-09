@@ -8,5 +8,5 @@ Tools for designing LPA experiments with inducers
 # https://packaging.python.org/en/latest/single_source_version.html
 __version__ = '0.1.0'
 
-from . import plate
 from . import inducer
+from . import plate
