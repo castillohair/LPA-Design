@@ -21,6 +21,7 @@ exp.randomize_plates = False
 exp.measurement_template = '../supporting_files/template_FlowCal.xlsx'
 exp.replicate_measurements = ['Date', 'Run by']
 exp.plate_measurements = ['Final OD600', 'Incubation time (min)']
+
 # Inducers
 # 520nm (green) light: log gradient
 light_520 = lpadesign.inducer.LightInducer(name='520nm Light',

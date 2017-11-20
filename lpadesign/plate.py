@@ -4,6 +4,8 @@ Module that contains the LPAPlate and LPAPlateArray classes.
 
 """
 
+import os
+
 import numpy
 
 import platedesign
@@ -52,6 +54,8 @@ class LPAPlate(platedesign.plate.Plate):
         self.lpa_program_duration = 8*60
         # Add additional dark frame at the end
         self.lpa_end_with_leds_off = True
+        # Folder for LPA files during replicate setup
+        self.lpa_files_folder = 'LPA Files'
 
         # Initialize container for closed plates
         self.closed_plates = [None]
@@ -158,6 +162,10 @@ class LPAPlate(platedesign.plate.Plate):
             Folder in which to save files.
 
         """
+        # Create folder for LPA files if necessary
+        if not os.path.exists(os.path.join(path, self.lpa_files_folder)):
+            os.makedirs(os.path.join(path, self.lpa_files_folder))
+
         # Get LPA name from closed plate location
         self.lpa.name = self.closed_plates[0].plate_info['Location']
         # Get the led layout names from light inducers
@@ -232,7 +240,7 @@ class LPAPlate(platedesign.plate.Plate):
                     intensities
 
         # Save files
-        self.lpa.save_files(path=path)
+        self.lpa.save_files(path=os.path.join(path, self.lpa_files_folder))
 
 class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
     """
@@ -278,6 +286,8 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
         self.lpa_program_duration = 8*60
         # Add additional dark frame at the end
         self.lpa_end_with_leds_off = True
+        # Folder for LPA files during replicate setup
+        self.lpa_files_folder = 'LPA Files'
 
         # Initialize container for closed plates
         self.closed_plates = [None]*(array_n_rows*array_n_cols)
@@ -327,6 +337,10 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
             Folder in which to save files.
 
         """
+        # Create folder for LPA files if necessary
+        if not os.path.exists(os.path.join(path, self.lpa_files_folder)):
+            os.makedirs(os.path.join(path, self.lpa_files_folder))
+
         # Get the led layout names from light inducers
         led_layouts = []
         for light_inducer in self.light_inducers:
@@ -406,4 +420,4 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
                         intensities
 
             # Save files
-            lpa.save_files(path=path)
+            lpa.save_files(path=os.path.join(path, self.lpa_files_folder))
