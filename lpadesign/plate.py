@@ -123,7 +123,8 @@ class LPAPlate(platedesign.plate.Plate):
 
         # Store inducer
         self.inducers[apply_to].append(inducer)
-        if isinstance(inducer, lpadesign.inducer.LightInducer):
+        if isinstance(inducer, lpadesign.inducer.LightInducer) or \
+                isinstance(inducer, lpadesign.inducer.LightSignal):
             self.light_inducers[led_channel] = inducer
 
     def close_plates(self):
@@ -207,6 +208,27 @@ class LPAPlate(platedesign.plate.Plate):
                 intensities.resize(1, self.n_rows, self.n_cols)
                 self.lpa.intensity[:,:,:,channel] = intensities.repeat(
                     self.lpa.intensity.shape[0], axis=0)
+            elif isinstance(inducer, lpadesign.inducer.LightSignal):
+                # Iterate over wells
+                for i in range(self.n_rows):
+                    for j in range(self.n_cols):
+                        well_info = self.closed_plates[0].well_info.iloc[
+                            i*self.n_cols + j]
+                        # Check if well is flagged for measurement
+                        if not well_info['Measure']:
+                            continue
+                        # Get sampling time
+                        ts = well_info[inducer._sampling_times_header]
+                        # Assemble sequence of intensities
+                        intensities = numpy.ones(self.lpa_program_duration) * \
+                            inducer.light_intensity_init
+                        if (ts > 0) and (ts <= self.lpa_program_duration):
+                            intensities[-ts:] = inducer.light_signal[0: ts]
+                        elif (ts > 0) and (ts > self.lpa_program_duration):
+                            intensities = inducer.light_signal[
+                                ts - self.lpa_program_duration:ts]
+                        # Save intensities
+                        self.lpa.intensity[:,i,j,channel] = intensities
             else:
                 raise NotImplementedError
 
@@ -386,6 +408,27 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
                     intensities.resize(1, self.plate_n_rows, self.plate_n_cols)
                     lpa.intensity[:,:,:,channel] = intensities.repeat(
                         lpa.intensity.shape[0], axis=0)
+                elif isinstance(inducer, lpadesign.inducer.LightSignal):
+                    # Iterate over wells
+                    for i in range(self.plate_n_rows):
+                        for j in range(self.plate_n_cols):
+                            well_info = self.closed_plate.well_info.iloc[
+                                i*self.plate_n_cols + j]
+                            # Check if well is flagged for measurement
+                            if not well_info['Measure']:
+                                continue
+                            # Get sampling time
+                            ts = well_info[inducer._sampling_times_header]
+                            # Assemble sequence of intensities
+                            intensities = numpy.ones(self.lpa_program_duration)\
+                                * inducer.light_intensity_init
+                            if (ts > 0) and (ts <= self.lpa_program_duration):
+                                intensities[-ts:] = inducer.light_signal[0: ts]
+                            elif (ts > 0) and (ts > self.lpa_program_duration):
+                                intensities = inducer.light_signal[
+                                    ts - self.lpa_program_duration:ts]
+                            # Save intensities
+                            lpa.intensity[:,i,j,channel] = intensities
                 else:
                     raise NotImplementedError
 
