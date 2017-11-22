@@ -15,35 +15,64 @@ import platedesign.inducer
 
 class LightInducer(platedesign.inducer.InducerBase):
     """
-    Object that represents different intensities of light.
+    Object that represents fixed light intensities from LPA LEDs.
+
+    Parameters
+    ----------
+    name : str
+        Name of the inducer, to be used in generated files.
+    units : str, optional
+        Units in which light intensity is expressed.
+    led_layout : str, optional
+        Name of the LED layout associated with this inducer. A layout
+        describes a mapping from LED types to each well of an arbitrary
+        LPA, without reference to a specific LPA or LEDs. An Excel file
+        mapping LED layouts to calibrated LED sets must be specified to the
+        ``LPA-Program`` module. For more information, refer to
+        ``LPA-Program``'s documentation. The LED layout name can be
+        specified during the object's creation, or sometime before
+        generating the experiment files.
+    id_prefix : str, optional
+        Prefix to be used for the ID that identifies each inducer dose.
+        If None, use the first letter of the inducer's name.
+    id_offset : int, optional
+        Offset from which to generate the ID that identifies each inducer
+        dose. Default: 0 (no offset).
 
     Attributes
     ----------
     name : str
-        Name of the inducer.
+        Name of the inducer, to be used in generated files.
+    units : str
+        Units in which light intensity is expressed.
+    led_layout : str
+        Name of the LED layout associated with this inducer. 
+    id_prefix : str
+        Prefix to be used for the ID that identifies each inducer dose.
+    id_offset : int
+        Offset from which to generate the ID that identifies each inducer
+        dose.
+    intensities : array
+        Inducer light intensities.
     doses_table : DataFrame
-        Table with information of each inducer dose.
+        Table containing information of all the inducer intensities.
 
     Methods
     -------
+    set_gradient
+        Set inducer intensities from a specified gradient.
     set_vol_from_shots
         Set volume to prepare from number of shots and replicates.
+    sync_shuffling
+        Register an inducer to synchronize shuffling with.
     shuffle
         Apply random shuffling to the dose table.
-    save_exp_setup_instructions
-        Save instructions for the Experiment Setup stage.
-    save_exp_setup_files
-        Save additional files for the Experiment Setup stage.
-    save_rep_setup_instructions
-        Save instructions for the Replicate Setup stage.
-    save_rep_setup_files
-        Save additional files for the Replicate Setup stage.
 
     """
     def __init__(self,
                  name,
-                 led_layout,
                  units=u'µmol/(m^2*s)',
+                 led_layout=None,
                  id_prefix=None,
                  id_offset=0):
         # Store name, led layout name, and units
@@ -101,7 +130,7 @@ class LightInducer(platedesign.inducer.InducerBase):
     @property
     def doses_table(self):
         """
-        Table containing information of all the inducer concentrations.
+        Table containing information of all the inducer doses.
 
         """
         if self.shuffled_idx is None:
@@ -169,8 +198,8 @@ class LightInducer(platedesign.inducer.InducerBase):
         """
         Set volume to prepare from number of shots and replicates.
 
-        This function does not have any function in a light inducer, and it
-        is only included due to being needed by the parent class.
+        This function does nothing in a light inducer, and it is only
+        included due to being needed by the parent class.
 
         """
         pass
@@ -218,14 +247,65 @@ class LightInducer(platedesign.inducer.InducerBase):
 
 class LightSignal(platedesign.inducer.InducerBase):
     """
-    Object that represents a dynamic light signal.
+    Object that represents a time-varying staggered light signal.
+
+    In a fixed-time experiment (many samples cultured for the same amount
+    of time) with an exponential bacterial culture, this inducer applies
+    a time-varying light signal to many samples using the "staggered
+    sampling method" (see Notes for details), so that the time response of
+    the culture to this signal can be measured at the end. By then, each
+    measurement will give the response of the culture to the signal at a
+    specific "sampling time". Correspondingly, each dose of this inducer
+    is associated with a sampling time. A separate file, created during the
+    Experiment Setup phase, contains the signal values over time. The dose
+    table contains only the dose's sampling time and the name of the file
+    with the signal values.
+
+    Parameters
+    ----------
+    name : str
+        Name of the inducer, to be used in generated files.
+    units : str, optional
+        Units in which light intensity is expressed.
+    led_layout : str, optional
+        Name of the LED layout associated with this inducer. A layout
+        describes a mapping from LED types to each well of an arbitrary
+        LPA, without reference to a specific LPA or LEDs. An Excel file
+        mapping LED layouts to calibrated LED sets must be specified to the
+        ``LPA-Program`` module. For more information, refer to
+        ``LPA-Program``'s documentation. The LED layout name can be
+        specified during the object's creation, or sometime before
+        generating the experiment files.
+    id_prefix : str, optional
+        Prefix to be used for the ID that identifies each inducer dose.
+        If None, use the first letter of the inducer's name.
+    id_offset : int, optional
+        Offset from which to generate the ID that identifies each inducer
+        dose. Default: 0 (no offset).
 
     Attributes
     ----------
     name : str
-        Name of the inducer.
+        Name of the inducer, to be used in generated files.
+    units : str
+        Units in which light intensity is expressed.
+    led_layout : str
+        Name of the LED layout associated with this inducer. 
+    id_prefix : str
+        Prefix to be used for the ID that identifies each inducer dose.
+    id_offset : int
+        Offset from which to generate the ID that identifies each inducer
+        dose.
+    light_signal : array
+        The light signal is specified as an array of light intensities to
+        apply every minute.
+    light_intensity_init
+        Constant light intensity to hold before the light signal has to be
+        applied.
+    sampling_times
+        Sampling times, in minutes.
     doses_table : DataFrame
-        Table with information of each inducer dose.
+        Table containing sampling time information.
 
     Methods
     -------
@@ -242,11 +322,27 @@ class LightSignal(platedesign.inducer.InducerBase):
     save_rep_setup_files
         Save additional files for the Replicate Setup stage.
 
+    Notes
+    -----
+    In order to measure a genetic system's time response to a time-varying
+    inducer signal, samples have to be taken out of the cell culture at
+    different times. If the culture is a bacterial culture in exponential
+    phase, this is equivalent to applying the inducer signal to multiple
+    samples in a fixed-time experiment, with a different time shift each.
+    This time shift is such that at the end of the experiment each sample
+    has been exposed to the signal only up to the sampling time. More
+    formally, the response of the cell culture to a signal of duration
+    ``t_signal`` at time ``ts_i < t_signal`` in an experiment of duration
+    ``t_exp`` is obtained by growing sample ``i`` under some initial fixed
+    signal value until ``t_exp - ts_i``, and then exposing the sample to
+    the signal from the beginning until time ``ts_i``. This is referred to
+    as the "staggered sampling method".
+
     """
     def __init__(self,
                  name,
-                 led_layout,
                  units=u'µmol/(m^2*s)',
+                 led_layout=None,
                  id_prefix=None,
                  id_offset=0):
         # Store name, led layout name, and units
