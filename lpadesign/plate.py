@@ -57,101 +57,8 @@ class LPAPlate(platedesign.plate.Plate):
         # Folder for LPA files during replicate setup
         self.lpa_files_folder = 'LPA Files'
 
-        # Initialize container for closed plates
-        self.closed_plates = [None]
-
         # Call Plate's constructor
         super(LPAPlate, self).__init__(name=name, n_rows=n_rows, n_cols=n_cols)
-
-    def apply_inducer(self, inducer, apply_to='wells', led_channel=None):
-        """
-        Apply an inducer to the plate.
-
-        This function stores the specified inducer in the `inducers`
-        attribute, after verifying consistency.
-
-        Parameters
-        ----------
-        inducer : Inducer object
-            The inducer to apply to the plate.
-        apply_to : {'rows', 'cols', 'wells', 'media'}
-            "rows" applies the specified inducer to all rows equally.
-            "cols" applies to all columns equally. "wells" applies to each
-            well individually. 'media' applies inducer to the media at the
-            beginning of the replicate setup stage. 'media' is not allowed
-            if ``inducer`` is a LightInducer.
-        led_channel : int
-            The LED channel used by a light inducer. Only necessary if
-            `inducer` is a light inducer (i.e. object from a class in
-            ``lpadesign.inducer``). Should be lower than attribute
-            ``n_led_channels``.
-
-        """
-        # Check "apply_to" input
-        if apply_to not in ['rows', 'cols', 'wells', 'media']:
-            raise ValueError('"{}"" not recognized'.format(apply_to))
-        # Only "wells" or "media" supported if not measuring full plate
-        if (self.samples_to_measure != self.n_cols*self.n_rows) and\
-                (apply_to not in ['wells', 'media']):
-            raise ValueError('"{}"" not possible if not measuring all wells'.\
-                format(apply_to))
-
-        # Check that the inducer has the appropriate number of samples
-        n_wells = self.samples_to_measure
-        if (apply_to=='rows' and (len(inducer.doses_table)!=self.n_cols)) or \
-           (apply_to=='cols' and (len(inducer.doses_table)!=self.n_rows)) or \
-           (apply_to=='wells' and (len(inducer.doses_table)!=n_wells)) or \
-           (apply_to=='media' and (len(inducer.doses_table)!=1)):
-                raise ValueError('inducer does not have the appropriate' + \
-                    ' number of doses')
-
-        # Check that the inducer is not repeated
-        if inducer in self.inducers[apply_to]:
-            raise ValueError("inducer already in plate's inducer list")
-
-        # Check that, if light inducer, led_channel is specified and valid, and
-        # that apply_to is not 'media'
-        if isinstance(inducer, lpadesign.inducer.LightInducer):
-            if led_channel is None:
-                raise ValueError("led_channel should be specified")
-            if led_channel < 0 or led_channel >= self.n_led_channels:
-                raise ValueError("led_channel should be between 0 and {}".\
-                    format(self.n_led_channels - 1))
-            if apply_to == 'media':
-                raise ValueError('apply_to="media" not possible for inducer of '
-                    'type {}'.format(type(inducer)))
-
-        # Store inducer
-        self.inducers[apply_to].append(inducer)
-        if isinstance(inducer, lpadesign.inducer.LightInducer) or \
-                isinstance(inducer, lpadesign.inducer.LightSignal):
-            self.light_inducers[led_channel] = inducer
-
-    def close_plates(self):
-        """
-        Generate ``ClosedPlate`` objects using this plate's information.
-
-        The individual ``ClosedPlate`` instances contain general plate
-        information such as plate name, dimensions, cell inoculation
-        conditions, and metadata, as well as well-specific information such
-        as inducer concentrations. All this info is generated when calling
-        `close_plates()`, and will remain fixed even after modifying
-        inducers or other information in the ``PlateArray`` object.
-
-        Within an experiment workflow, this function is meant to be called
-        at the end of the Replicate Setup stage.
-
-        Return
-        ------
-        list
-            ``ClosedPlate`` instances with information about each sample.
-            This list will only contain one ``ClosedPlate`` instance, as
-            ``Plate`` represents a single plate.
-
-        """
-        # Call parent method, save list of closed plates, and return list.
-        self.closed_plates = super(LPAPlate, self).close_plates()
-        return self.closed_plates
 
     def save_rep_setup_files(self, path='.'):
         """
@@ -163,74 +70,86 @@ class LPAPlate(platedesign.plate.Plate):
             Folder in which to save files.
 
         """
+        # Recover LPA inducers
+        # LPA inducers are recognized from having the attributes "led_layout"
+        # and "led_channel"
+        lpa_inducers = [None]*self.n_channels
+        lpa_inducers_apply_to = [None]*self.n_channels
+        for apply_to, inducers in self.inducers.iteritems():
+            for inducer in inducers:
+                if hasattr(inducer, "led_layout") and \
+                        hasattr(inducer, "led_channel"):
+                    # Check that channel is within the allowed number of
+                    # channels.
+                    if inducer.led_channel >= self.n_channels:
+                        raise ValueError("inducer {} ".format(inducer.name) +\
+                            "assigned to LED channel {} (zero-based), ".format(
+                                inducer.led_channel) +\
+                            "device only has {} channels".format(self.n_channels))
+                    # Check that no other inducer exists in channel
+                    if lpa_inducers[inducer.led_channel] is not None:
+                        raise ValueError("more than one LPA inducers assigned "
+                            "to plate {}, LED channel {}".format(
+                                self.name, inducer.led_channel))
+                    # Store inducer
+                    lpa_inducers[inducer.led_channel] = inducer
+                    lpa_inducers_apply_to[inducer.led_channel] = apply_to
+
+        # Save nothing if no LPA inducers have been found.
+        if all(inducer is None for inducer in inducers):
+            return
+
         # Create folder for LPA files if necessary
         if not os.path.exists(os.path.join(path, self.lpa_files_folder)):
             os.makedirs(os.path.join(path, self.lpa_files_folder))
 
-        # Get LPA name from closed plate location
-        self.lpa.name = self.closed_plates[0].plate_info['Location']
-        # Get the led layout names from light inducers
-        led_layouts = []
-        for light_inducer in self.light_inducers:
-            if light_inducer is not None:
-                led_layouts.append(light_inducer.led_layout)
-            else:
-                led_layouts.append(None)
-        # Load LED set information
+        # Get LPA name from LPA resource
+        self.lpa.name = self.resources['LPA'][0]
+
+        # Load LED layout information
+        led_layouts = [inducer.led_layout if inducer is not None
+                       else None
+                       for inducer in lpa_inducers]
         self.lpa.load_led_sets(layout_names=led_layouts)
 
-        # Decide number of frames based on type of light inducers.
-        # LightInducer are steady state inducers, and only need one frame.
-        # For anything else, we will generate one frame per minute.
-        steady_state = numpy.all([isinstance(l, lpadesign.inducer.LightInducer)
-                                  for l in self.light_inducers])
+        # Step size is one minute
+        # Number of steps is the duration of the experiment
+        self.lpa.step_size = 1000*60
+        self.lpa.set_n_steps(self.lpa_program_duration)
 
-        if steady_state:
-            # Step size is the duration of the whole experiment
-            self.lpa.step_size = 1000*60*self.lpa_program_duration
-            self.lpa.set_n_steps(1)
-        else:
-            self.lpa.step_size = 1000*60
-            self.lpa.set_n_steps(self.lpa_program_duration)
+        # Reset all intensities to zero
+        self.lpa.intensity.fill(0.)
 
         # Fill light intensity array in LPA object
-        for channel, inducer in enumerate(self.light_inducers):
-            if isinstance(inducer, lpadesign.inducer.LightInducer):
-                # Light inducer
-                # Steady state inducer
-                # Intensities per well should be resolved in closed plate
-                intensities = self.closed_plates[0].well_info[
-                    inducer._intensities_header].values
-                # 'NaN' values are registered for wells that are not to be
-                # measured. Switch these to zero.
-                intensities[numpy.isnan(intensities)] = 0
-                # Resize and add to all frames of intensity array in LPA object.
-                intensities.resize(1, self.n_rows, self.n_cols)
-                self.lpa.intensity[:,:,:,channel] = intensities.repeat(
-                    self.lpa.intensity.shape[0], axis=0)
-            elif isinstance(inducer, lpadesign.inducer.LightSignal):
-                # Iterate over wells
-                for i in range(self.n_rows):
-                    for j in range(self.n_cols):
-                        well_info = self.closed_plates[0].well_info.iloc[
-                            i*self.n_cols + j]
-                        # Check if well is flagged for measurement
-                        if not well_info['Measure']:
-                            continue
-                        # Get sampling time
-                        ts = well_info[inducer._sampling_times_header]
-                        # Assemble sequence of intensities
-                        intensities = numpy.ones(self.lpa_program_duration) * \
-                            inducer.light_intensity_init
-                        if (ts > 0) and (ts <= self.lpa_program_duration):
-                            intensities[-ts:] = inducer.light_signal[0: ts]
-                        elif (ts > 0) and (ts > self.lpa_program_duration):
-                            intensities = inducer.light_signal[
-                                ts - self.lpa_program_duration:ts]
-                        # Save intensities
-                        self.lpa.intensity[:,i,j,channel] = intensities
-            else:
-                raise NotImplementedError
+        for channel, (inducer, apply_to) in \
+                enumerate(zip(lpa_inducers, lpa_inducers_apply_to)):
+            # Do nothing if there is no inducer
+            if inducer is None:
+                continue
+            # Fill intensity array
+            for i in range(self.n_rows):
+                for j in range(self.n_cols):
+                    # Decide what to do based on how to apply the inducer
+                    if apply_to == 'rows':
+                        self.lpa.intensity[:,i,j,channel] = \
+                            inducer.intensities[j]
+                    elif apply_to == 'cols':
+                        self.lpa.intensity[:,i,j,channel] = \
+                            inducer.intensities[i]
+                    elif apply_to == 'wells':
+                        if (i*self.n_cols + j) < self.samples_to_measure:
+                            self.lpa.intensity[:,i,j,channel] = \
+                                inducer.intensities[i*self.n_cols + j]
+                    elif apply_to == 'media':
+                        if (i*self.n_cols + j) < self.samples_to_measure:
+                            self.lpa.intensity[:,i,j,channel] = \
+                                inducer.intensities[0]
+
+        # Condense intensity array if all intensities over time are the same
+        # This comparison will be performed by comparing all frames to the first
+        # frame, and testing for all True.
+        if numpy.all((self.lpa.intensities[0] == self.lpa.intensities)):
+            self.lpa.set_n_steps(1)
 
         # Add additional frame at the end.
         # If `lpa_end_with_leds_off` is True, the last frame will have all the
@@ -248,18 +167,6 @@ class LPAPlate(platedesign.plate.Plate):
 
         # Discretize intensities
         self.lpa.discretize_intensity()
-        
-        # Feed back to closed plates
-        # Only necessary for steady state light inducers
-        for channel, inducer in enumerate(self.light_inducers):
-            if isinstance(inducer, lpadesign.inducer.LightInducer):
-                intensities = self.lpa.intensity[0,:,:,channel].flatten()
-                # Restore nan values on wells that will not be measured.
-                intensities[self.closed_plates[0].well_info['Measure']==False] \
-                    = numpy.nan
-                # Update closed plate
-                self.closed_plates[0].well_info[inducer._intensities_header] = \
-                    intensities
 
         # Save files
         self.lpa.save_files(path=os.path.join(path, self.lpa_files_folder))
@@ -311,9 +218,6 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
         # Folder for LPA files during replicate setup
         self.lpa_files_folder = 'LPA Files'
 
-        # Initialize container for closed plates
-        self.closed_plates = [None]*(array_n_rows*array_n_cols)
-
         # Call Plate's constructor
         platedesign.plate.PlateArray.__init__(self,
                                               name=name,
@@ -322,32 +226,6 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
                                               plate_names=plate_names,
                                               plate_n_rows=plate_n_rows,
                                               plate_n_cols=plate_n_cols,)
-
-    def close_plates(self):
-        """
-        Generate ``ClosedPlate`` objects for each plate in the array.
-
-        The individual ``ClosedPlate`` instances contain general plate
-        information such as plate name, dimensions, cell inoculation
-        conditions, and metadata, as well as well-specific information such
-        as inducer concentrations. All this info is generated when calling
-        `close_plates()`, and will remain fixed even after modifying
-        inducers or other information in the ``PlateArray`` object.
-
-        Within an experiment workflow, this function is meant to be called
-        at the end of the Replicate Setup stage.
-
-        Return
-        ------
-        list
-            ``ClosedPlate`` instances with information about each sample.
-            The number of closed plates in this list is the number of
-            plates in the array, i.e., ``array_n_rows * array_n_cols``.
-
-        """
-        # Call parent method, save list of closed plates, and return list.
-        self.closed_plates = super(LPAPlateArray, self).close_plates()
-        return self.closed_plates
 
     def save_rep_setup_files(self, path='.'):
         """
@@ -359,78 +237,101 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
             Folder in which to save files.
 
         """
+        # Recover LPA inducers
+        # LPA inducers are recognized from having the attributes "led_layout"
+        # and "led_channel"
+        lpa_inducers = [None]*self.n_channels
+        lpa_inducers_apply_to = [None]*self.n_channels
+        for apply_to, inducers in self.inducers.iteritems():
+            for inducer in inducers:
+                if hasattr(inducer, "led_layout") and \
+                        hasattr(inducer, "led_channel"):
+                    # Check that channel is within the allowed number of
+                    # channels.
+                    if inducer.led_channel >= self.n_channels:
+                        raise ValueError("inducer {} ".format(inducer.name) +\
+                            "assigned to LED channel {} (zero-based), ".format(
+                                inducer.led_channel) +\
+                            "device only has {} channels".format(self.n_channels))
+                    # Check that no other inducer exists in channel
+                    if lpa_inducers[inducer.led_channel] is not None:
+                        raise ValueError("more than one LPA inducers assigned "
+                            "to plate {}, LED channel {}".format(
+                                self.name, inducer.led_channel))
+                    # Store inducer
+                    lpa_inducers[inducer.led_channel] = inducer
+                    lpa_inducers_apply_to[inducer.led_channel] = apply_to
+
+        # Save nothing if no LPA inducers have been found.
+        if all(inducer is None for inducer in inducers):
+            return
+
         # Create folder for LPA files if necessary
         if not os.path.exists(os.path.join(path, self.lpa_files_folder)):
             os.makedirs(os.path.join(path, self.lpa_files_folder))
 
-        # Get the led layout names from light inducers
-        led_layouts = []
-        for light_inducer in self.light_inducers:
-            if light_inducer is not None:
-                led_layouts.append(light_inducer.led_layout)
-            else:
-                led_layouts.append(None)
+        # Get LED layout information
+        led_layouts = [inducer.led_layout if inducer is not None
+                       else None
+                       for inducer in lpa_inducers]
 
-        # Decide number of frames based on type of light inducers.
-        # LightInducer are steady state inducers, and only need one frame.
-        # For anything else, we will generate one frame per minute.
-        steady_state = numpy.all([isinstance(l, lpadesign.inducer.LightInducer)
-                                  for l in self.light_inducers])
-        if steady_state:
-            # Step size is the duration of the whole experiment
-            lpa_step_size = 1000*60*self.lpa_program_duration
-            lpa_n_steps = 1
-        else:
-            lpa_step_size = 1000*60
-            lpa_n_steps = self.lpa_program_duration
+        # Set LPA name, load LED layouts, set step size, and empty intensity array
+        for lpa_idx, lpa in enumerate(self.lpas):
+            # Set name from plate resources
+            lpa.name = self.resources['LPA'][lpa_idx]
 
-        for lpa, closed_plate in zip(self.lpas, self.closed_plates):
-            # Get LPA name from closed plate location
-            lpa.name = closed_plate.plate_info['Location']
-            # Load LED set information
+            # Load LED layout
             lpa.load_led_sets(layout_names=led_layouts)
-            # Set step size and number of steps
-            lpa.step_size = lpa_step_size
-            lpa.set_n_steps(lpa_n_steps)
 
-            # Fill light intensity array in LPA object
-            for channel, inducer in enumerate(self.light_inducers):
-                if isinstance(inducer, lpadesign.inducer.LightInducer):
-                    # Light inducer
-                    # Steady state inducer
-                    # Intensities per well should be resolved in closed plate
-                    intensities = closed_plate.well_info[
-                        inducer._intensities_header].values
-                    # 'NaN' values are registered for wells that are not to be
-                    # measured. Switch these to zero.
-                    intensities[numpy.isnan(intensities)] = 0
-                    # Resize and add to all frames of intensity array in LPA.
-                    intensities.resize(1, self.plate_n_rows, self.plate_n_cols)
-                    lpa.intensity[:,:,:,channel] = intensities.repeat(
-                        lpa.intensity.shape[0], axis=0)
-                elif isinstance(inducer, lpadesign.inducer.LightSignal):
-                    # Iterate over wells
-                    for i in range(self.plate_n_rows):
-                        for j in range(self.plate_n_cols):
-                            well_info = self.closed_plate.well_info.iloc[
-                                i*self.plate_n_cols + j]
-                            # Check if well is flagged for measurement
-                            if not well_info['Measure']:
-                                continue
-                            # Get sampling time
-                            ts = well_info[inducer._sampling_times_header]
-                            # Assemble sequence of intensities
-                            intensities = numpy.ones(self.lpa_program_duration)\
-                                * inducer.light_intensity_init
-                            if (ts > 0) and (ts <= self.lpa_program_duration):
-                                intensities[-ts:] = inducer.light_signal[0: ts]
-                            elif (ts > 0) and (ts > self.lpa_program_duration):
-                                intensities = inducer.light_signal[
-                                    ts - self.lpa_program_duration:ts]
-                            # Save intensities
-                            lpa.intensity[:,i,j,channel] = intensities
-                else:
-                    raise NotImplementedError
+            # Step size is one minute
+            # Number of steps is the duration of the experiment
+            lpa.step_size = 1000*60
+            lpa.set_n_steps(self.lpa_program_duration)
+
+            # Reset all intensities to zero
+            lpa.intensity.fill(0.)
+
+        # Fill light intensity array in LPA object
+        for channel, (inducer, apply_to) in \
+                enumerate(zip(lpa_inducers, lpa_inducers_apply_to)):
+            # Do nothing if there is no inducer
+            if inducer is None:
+                continue
+            # Fill intensity array
+            for array_i in range(self.array_n_rows):
+                for array_j in range(self.array_n_cols):
+                    array_k = array_i*self.array_n_cols + array_j
+                    for plate_i in range(self.plate_n_rows):
+                        for plate_j in range(self.plate_n_cols):
+                            i = array_i*self.plate_n_rows + plate_i
+                            j = array_j*self.plate_n_cols + plate_j
+                            k = i*self.n_cols + j
+                            if apply_to == 'rows':
+                                self.lpas[array_k].\
+                                    intensity[:, plate_i, plate_j, channel]\
+                                    = inducer.intensities[j]
+                            elif apply_to == 'cols':
+                                self.lpas[array_k].\
+                                    intensity[:, plate_i, plate_j, channel]\
+                                    = inducer.intensities[i]
+                            elif apply_to == 'wells':
+                                if k < self.samples_to_measure:
+                                    self.lpas[array_k].\
+                                        intensity[:, plate_i, plate_j, channel]\
+                                        = inducer.intensities[k]
+                            elif apply_to == 'media':
+                                if k < self.samples_to_measure:
+                                    self.lpas[array_k].\
+                                        intensity[:, plate_i, plate_j, channel]\
+                                        = inducer.intensities[0]
+
+        # Do post-processing and save LPA files
+        for lpa in self.lpas:
+            # Condense intensity array if all intensities over time are the same
+            # This comparison will be performed by comparing all frames to the
+            # first frame, and testing for all True.
+            if numpy.all((lpa.intensities[0] == lpa.intensities)):
+                lpa.set_n_steps(1)
 
             # Add additional frame at the end.
             # If `lpa_end_with_leds_off` is True, the last frame will have all
@@ -449,18 +350,6 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
 
             # Discretize intensities
             lpa.discretize_intensity()
-            
-            # Feed back to closed plates
-            # Only necessary for steady state light inducers
-            for channel, inducer in enumerate(self.light_inducers):
-                if isinstance(inducer, lpadesign.inducer.LightInducer):
-                    intensities = lpa.intensity[0,:,:,channel].flatten()
-                    # Restore nan values on wells that will not be measured.
-                    intensities[closed_plate.well_info['Measure']==False] \
-                        = numpy.nan
-                    # Update closed plate
-                    closed_plate.well_info[inducer._intensities_header] = \
-                        intensities
 
             # Save files
             lpa.save_files(path=os.path.join(path, self.lpa_files_folder))

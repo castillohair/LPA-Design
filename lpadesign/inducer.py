@@ -32,6 +32,10 @@ class LightInducer(platedesign.inducer.InducerBase):
         ``LPA-Program``'s documentation. The LED layout name can be
         specified during the object's creation, or sometime before
         generating the experiment files.
+    led_channel : int, optional
+        The LED channel used by the inducer in an LPA. This can be
+        specified during the object's creation, or sometime before
+        generating the experiment files.
     id_prefix : str, optional
         Prefix to be used for the ID that identifies each inducer dose.
         If None, use the first letter of the inducer's name.
@@ -46,7 +50,9 @@ class LightInducer(platedesign.inducer.InducerBase):
     units : str
         Units in which light intensity is expressed.
     led_layout : str
-        Name of the LED layout associated with this inducer. 
+        Name of the LED layout associated with this inducer.
+    led_channel : int, optional
+        The LED channel used by the inducer in an LPA.
     id_prefix : str
         Prefix to be used for the ID that identifies each inducer dose.
     id_offset : int
@@ -73,12 +79,14 @@ class LightInducer(platedesign.inducer.InducerBase):
                  name,
                  units=u'µmol/(m^2*s)',
                  led_layout=None,
+                 led_channel=None,
                  id_prefix=None,
                  id_offset=0):
-        # Store name, led layout name, and units
+        # Store name, units, led layout, and led channel
         self.name = name
-        self.led_layout = led_layout
         self.units = units
+        self.led_layout = led_layout
+        self.led_channel = led_channel
 
         # Store ID modifiers for dose table
         if id_prefix is None:
@@ -276,6 +284,10 @@ class LightSignal(platedesign.inducer.InducerBase):
         ``LPA-Program``'s documentation. The LED layout name can be
         specified during the object's creation, or sometime before
         generating the experiment files.
+    led_channel : int, optional
+        The LED channel used by the inducer in an LPA. This can be
+        specified during the object's creation, or sometime before
+        generating the experiment files.
     id_prefix : str, optional
         Prefix to be used for the ID that identifies each inducer dose.
         If None, use the first letter of the inducer's name.
@@ -291,6 +303,8 @@ class LightSignal(platedesign.inducer.InducerBase):
         Units in which light intensity is expressed.
     led_layout : str
         Name of the LED layout associated with this inducer. 
+    led_channel : int, optional
+        The LED channel used by the inducer in an LPA.
     id_prefix : str
         Prefix to be used for the ID that identifies each inducer dose.
     id_offset : int
@@ -343,12 +357,14 @@ class LightSignal(platedesign.inducer.InducerBase):
                  name,
                  units=u'µmol/(m^2*s)',
                  led_layout=None,
+                 led_channel=None,
                  id_prefix=None,
                  id_offset=0):
-        # Store name, led layout name, and units
+        # Store name, units, led layout, and led channel
         self.name = name
-        self.led_layout = led_layout
         self.units = units
+        self.led_layout = led_layout
+        self.led_channel = led_channel
 
         # Light signal
         # Each value is the LED intensity for a minute.
