@@ -73,19 +73,20 @@ class LPAPlate(platedesign.plate.Plate):
         # Recover LPA inducers
         # LPA inducers are recognized from having the attributes "led_layout"
         # and "led_channel"
-        lpa_inducers = [None]*self.n_channels
-        lpa_inducers_apply_to = [None]*self.n_channels
+        lpa_inducers = [None]*self.n_led_channels
+        lpa_inducers_apply_to = [None]*self.n_led_channels
         for apply_to, inducers in self.inducers.iteritems():
             for inducer in inducers:
                 if hasattr(inducer, "led_layout") and \
                         hasattr(inducer, "led_channel"):
                     # Check that channel is within the allowed number of
                     # channels.
-                    if inducer.led_channel >= self.n_channels:
+                    if inducer.led_channel >= self.n_led_channels:
                         raise ValueError("inducer {} ".format(inducer.name) +\
                             "assigned to LED channel {} (zero-based), ".format(
                                 inducer.led_channel) +\
-                            "device only has {} channels".format(self.n_channels))
+                            "device only has {} channels".format(
+                                self.n_led_channels))
                     # Check that no other inducer exists in channel
                     if lpa_inducers[inducer.led_channel] is not None:
                         raise ValueError("more than one LPA inducers assigned "
@@ -96,7 +97,7 @@ class LPAPlate(platedesign.plate.Plate):
                     lpa_inducers_apply_to[inducer.led_channel] = apply_to
 
         # Save nothing if no LPA inducers have been found.
-        if all(inducer is None for inducer in inducers):
+        if all(inducer is None for inducer in lpa_inducers):
             return
 
         # Create folder for LPA files if necessary
@@ -148,7 +149,7 @@ class LPAPlate(platedesign.plate.Plate):
         # Condense intensity array if all intensities over time are the same
         # This comparison will be performed by comparing all frames to the first
         # frame, and testing for all True.
-        if numpy.all((self.lpa.intensities[0] == self.lpa.intensities)):
+        if numpy.all((self.lpa.intensity[0] == self.lpa.intensity)):
             self.lpa.set_n_steps(1)
 
         # Add additional frame at the end.
@@ -240,19 +241,20 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
         # Recover LPA inducers
         # LPA inducers are recognized from having the attributes "led_layout"
         # and "led_channel"
-        lpa_inducers = [None]*self.n_channels
-        lpa_inducers_apply_to = [None]*self.n_channels
+        lpa_inducers = [None]*self.n_led_channels
+        lpa_inducers_apply_to = [None]*self.n_led_channels
         for apply_to, inducers in self.inducers.iteritems():
             for inducer in inducers:
                 if hasattr(inducer, "led_layout") and \
                         hasattr(inducer, "led_channel"):
                     # Check that channel is within the allowed number of
                     # channels.
-                    if inducer.led_channel >= self.n_channels:
+                    if inducer.led_channel >= self.n_led_channels:
                         raise ValueError("inducer {} ".format(inducer.name) +\
                             "assigned to LED channel {} (zero-based), ".format(
                                 inducer.led_channel) +\
-                            "device only has {} channels".format(self.n_channels))
+                            "device only has {} channels".format(
+                                self.n_led_channels))
                     # Check that no other inducer exists in channel
                     if lpa_inducers[inducer.led_channel] is not None:
                         raise ValueError("more than one LPA inducers assigned "
@@ -263,7 +265,7 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
                     lpa_inducers_apply_to[inducer.led_channel] = apply_to
 
         # Save nothing if no LPA inducers have been found.
-        if all(inducer is None for inducer in inducers):
+        if all(inducer is None for inducer in lpa_inducers):
             return
 
         # Create folder for LPA files if necessary
@@ -330,7 +332,7 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
             # Condense intensity array if all intensities over time are the same
             # This comparison will be performed by comparing all frames to the
             # first frame, and testing for all True.
-            if numpy.all((lpa.intensities[0] == lpa.intensities)):
+            if numpy.all((lpa.intensity[0] == lpa.intensity)):
                 lpa.set_n_steps(1)
 
             # Add additional frame at the end.
