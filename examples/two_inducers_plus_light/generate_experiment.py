@@ -96,4 +96,8 @@ for plate in exp.plates:
     plate.cell_predilution_vol = 1000
     plate.cell_shot_vol = 5
 
+# Light program time in minutes
+# Only needs to be specified in one light inducer
+light_520.n_time_steps = 8*60
+
 exp.generate()

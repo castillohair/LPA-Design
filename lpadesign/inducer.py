@@ -13,7 +13,112 @@ import pandas
 import platedesign
 import platedesign.inducer
 
-class LightInducer(platedesign.inducer.InducerBase):
+class LPAInducerBase(platedesign.inducer.InducerBase):
+    """
+    Generic class that represents one or more doses of an LPA inducer.
+
+    This class is meant to be inherited by a class representing a concrete
+    LPA light inducer type.
+
+    Parameters
+    ----------
+    name : str
+        Name of the inducer, to be used in generated files.
+    units : str, optional
+        Units in which light intensity is expressed.
+    led_layout : str, optional
+        Name of the LED layout associated with this inducer. A layout
+        describes a mapping from LED types to each well of an arbitrary
+        LPA, without reference to a specific LPA or LEDs. An Excel file
+        mapping LED layouts to calibrated LED sets must be specified to the
+        ``LPA-Program`` module. For more information, refer to
+        ``LPA-Program``'s documentation. The LED layout name can be
+        specified during the object's creation, or sometime before
+        generating the experiment files.
+    led_channel : int, optional
+        The LED channel used by the inducer in an LPA. This can be
+        specified during the object's creation, or sometime before
+        generating the experiment files.
+
+    Attributes
+    ----------
+    name : str
+        Name of the inducer, to be used in generated files.
+    units : str
+        Units in which light intensity is expressed.
+    led_layout : str
+        Name of the LED layout associated with this inducer.
+    led_channel : int
+        The LED channel used by the inducer in an LPA.
+    doses_table : DataFrame
+        Table containing information of all the inducer intensities.
+
+    Other Attributes
+    ----------------
+    shuffling_enabled : bool
+        Whether shuffling of the doses table is enabled. If False, the
+        `shuffle` function will not change the order of the rows in the
+        doses table.
+    shuffled_idx : list
+        Randomized indices that result in the current shuffling of
+        doses.
+    shuffling_sync_list : list
+        List of inducers with which shuffling should be synchronized.
+    time_step_size : int
+        Number of milliseconds in each time step. Default: None (not
+        specified).
+    time_step_units : str
+        Specific name of each time step (e.g. minute), to be used in
+        generated files. Default: None (not specified).
+    n_time_steps : int
+        Number of time steps in the LPA program. Default: None (not
+        specified).
+
+    """
+    def __init__(self,
+                 name,
+                 units=u'µmol/(m^2*s)',
+                 led_layout=None,
+                 led_channel=None,):
+        # Parent's __init__ stores name, units, initializes doses table, and
+        # sets shuffling parameters.
+        super(LPAInducerBase, self).__init__(name=name, units=units)
+
+        # Store led layout and led channel
+        self.led_layout = led_layout
+        self.led_channel = led_channel
+
+        # Initialize time step attributes
+        self.time_step_size = None
+        self.time_step_units = None
+        self.n_time_steps = None
+
+    def get_lpa_intensity(self, dose_idx):
+        """
+        Get the LPA intensity sequence for a specified dose.
+
+        An LPA light inducer can have time-varying intensities, and/or only
+        partial information exposed via ``doses_table``. This function
+        returns the fully resolved sequence of light intensities such that
+        it can be directly copied into
+        ``lpaprogram.LPA.intensity[:,row,col,channel]``.
+
+        Parameters
+        ----------
+        dose_idx : int
+            Dose for which to generate the intensity sequence.
+
+        Returns
+        -------
+        array
+            Array with `n_time_steps` intensities to be recorded in a
+            LPA program for dose `dose_idx`.
+
+        """
+        raise NotImplementedError
+
+
+class LightInducer(LPAInducerBase):
     """
     Object that represents fixed light intensities from LPA LEDs.
 
@@ -63,16 +168,24 @@ class LightInducer(platedesign.inducer.InducerBase):
     doses_table : DataFrame
         Table containing information of all the inducer intensities.
 
-    Methods
-    -------
-    set_gradient
-        Set inducer intensities from a specified gradient.
-    set_vol_from_shots
-        Set volume to prepare from number of shots and replicates.
-    sync_shuffling
-        Register an inducer to synchronize shuffling with.
-    shuffle
-        Apply random shuffling to the dose table.
+    Other Attributes
+    ----------------
+    shuffling_enabled : bool
+        Whether shuffling of the doses table is enabled. If False, the
+        `shuffle` function will not change the order of the rows in the
+        doses table.
+    shuffled_idx : list
+        Randomized indices that result in the current shuffling of
+        doses.
+    shuffling_sync_list : list
+        List of inducers with which shuffling should be synchronized.
+    time_step_size : int
+        Number of milliseconds in each time step.
+    time_step_units : str
+        Specific name of each time step (e.g. minute), to be used in
+        generated files.
+    n_time_steps : int
+        Number of time steps in the LPA program.
 
     """
     def __init__(self,
@@ -82,25 +195,23 @@ class LightInducer(platedesign.inducer.InducerBase):
                  led_channel=None,
                  id_prefix=None,
                  id_offset=0):
-        # Store name, units, led layout, and led channel
-        self.name = name
-        self.units = units
-        self.led_layout = led_layout
-        self.led_channel = led_channel
+        # Parent's __init__ stores name, units, led_layout, and led_channel,
+        # initializes doses table, and sets shuffling and time step parameters.
+        super(LightInducer, self).__init__(name=name,
+                                           units=units,
+                                           led_layout=led_layout,
+                                           led_channel=led_channel)
+
+        # Renitialize time step attributes
+        # Default: one minute step
+        self.time_step_size = 1000*60
+        self.time_step_units = 'min'
 
         # Store ID modifiers for dose table
         if id_prefix is None:
             id_prefix=name[0]
         self.id_prefix=id_prefix
         self.id_offset=id_offset
-
-        # Initialize an empty dose table
-        self._doses_table = pandas.DataFrame()
-        # Enable shuffling by default, but start with no shuffling and an
-        # empty list of inducers to synchronize shuffling with.
-        self.shuffling_enabled = True
-        self.shuffled_idx = None
-        self.shuffling_sync_list = []
 
     @property
     def _intensities_header(self):
@@ -134,17 +245,6 @@ class LightInducer(platedesign.inducer.InducerBase):
         self._doses_table = pandas.DataFrame({'ID': ids})
         self._doses_table.set_index('ID', inplace=True)
         self._doses_table[self._intensities_header] = value
-
-    @property
-    def doses_table(self):
-        """
-        Table containing information of all the inducer doses.
-
-        """
-        if self.shuffled_idx is None:
-            return self._doses_table
-        else:
-            return self._doses_table.iloc[self.shuffled_idx]
 
     def set_gradient(self,
                      min,
@@ -200,74 +300,38 @@ class LightInducer(platedesign.inducer.InducerBase):
         # Repeat if necessary
         self.intensities = numpy.repeat(self.intensities, n_repeat)
 
-    def set_vol_from_shots(self,
-                           n_shots,
-                           n_replicates=1):
+    def get_lpa_intensity(self, dose_idx):
         """
-        Set volume to prepare from number of shots and replicates.
+        Get the LPA intensity sequence for a specified dose.
 
-        This function does nothing in a light inducer, and it is only
-        included due to being needed by the parent class.
-
-        """
-        pass
-
-    def sync_shuffling(self, inducer):
-        """
-        Register an inducer to synchronize shuffling with.
-
-        Inducers whose shuffling is synchronized should have the same
-        number of doses (i.e. the length of their doses table should be the
-        same). Shuffling synchronization is based on the controlling
-        inducer being able to directly modify the shuffling indices of the
-        controlled inducers. Therefore, this function sets the flag
-        ``shuffling_enabled`` in `inducer` to ``False``.
+        Returns a `n_time_steps`-long sequence with all elements set to the
+        intensity of dose `dose_idx`.
 
         Parameters
         ----------
-        inducer : Inducer
-            Inducer to synchronize shuffling with.
+        dose_idx : int
+            Dose for which to generate the intensity sequence.
+
+        Returns
+        -------
+        array
+            Array with `n_time_steps` intensities to be recorded in a
+            LPA program for dose `dose_idx`.
 
         """
-        # Check length of doses table
-        if len(self.doses_table) != len(inducer.doses_table):
-            raise ValueError("inducers to synchronize should have the same "
-                "number of doses")
-        # Disable shuffling flag
-        inducer.shuffling_enabled = False
-        # Add to list of inducers to synchronize with
-        self.shuffling_sync_list.append(inducer)
+        return numpy.ones(self.n_time_steps)*self.intensities[dose_idx]
 
-    def shuffle(self):
-        """
-        Apply random shuffling to the dose table.
-
-        """
-        if self.shuffling_enabled:
-            # Create list of indices, shuffle, and store.
-            shuffled_idx = list(range(len(self.doses_table)))
-            random.shuffle(shuffled_idx)
-            self.shuffled_idx = shuffled_idx
-            # Write shuffled indices on inducers to synchronize with
-            for inducer in self.shuffling_sync_list:
-                inducer.shuffled_idx = self.shuffled_idx
-
-
-class LightSignal(platedesign.inducer.InducerBase):
+class StaggeredLightSignal(LPAInducerBase):
     """
     Object that represents a time-varying staggered light signal.
 
-    In a fixed-time experiment (many samples cultured for the same amount
-    of time) with an exponential bacterial culture, this inducer applies
-    a time-varying light signal to many samples using the "staggered
-    sampling method" (see Notes for details), so that the time response of
-    the culture to this signal can be measured at the end. By then, each
-    measurement will give the response of the culture to the signal at a
-    specific "sampling time". Correspondingly, each dose of this inducer
-    is associated with a sampling time. A separate file, created during the
-    Experiment Setup phase, contains the signal values over time. The dose
-    table contains only the dose's sampling time and the name of the file
-    with the signal values.
+    This inducer applies a time-varying light signal to many samples using
+    the "staggered sampling method" (see Notes for details).
+    Correspondingly, each dose of this inducer is associated with a
+    sampling time. A separate file, created during the Experiment Setup
+    phase, contains the signal values over time. The dose table contains
+    only the dose's sampling time and the name of the file with the signal
+    values.
 
     Parameters
     ----------
@@ -312,29 +376,35 @@ class LightSignal(platedesign.inducer.InducerBase):
         dose.
     light_signal : array
         The light signal is specified as an array of light intensities to
-        apply every minute.
+        apply on every time step (see attributes `time_step_size` and
+        `time_step_units`).
     light_intensity_init
-        Constant light intensity to hold before the light signal has to be
-        applied.
+        Constant light intensity to hold before the beginning of the light
+        signal.
     sampling_times
-        Sampling times, in minutes.
+        Sampling times, in time steps (see attributes `time_step_size` and
+        `time_step_units`).
     doses_table : DataFrame
         Table containing sampling time information.
+    n_time_steps : int
+        Number of time steps in the LPA program.
 
-    Methods
-    -------
-    set_vol_from_shots
-        Set volume to prepare from number of shots and replicates.
-    shuffle
-        Apply random shuffling to the dose table.
-    save_exp_setup_instructions
-        Save instructions for the Experiment Setup stage.
-    save_exp_setup_files
-        Save additional files for the Experiment Setup stage.
-    save_rep_setup_instructions
-        Save instructions for the Replicate Setup stage.
-    save_rep_setup_files
-        Save additional files for the Replicate Setup stage.
+    Other Attributes
+    ----------------
+    shuffling_enabled : bool
+        Whether shuffling of the doses table is enabled. If False, the
+        `shuffle` function will not change the order of the rows in the
+        doses table.
+    shuffled_idx : list
+        Randomized indices that result in the current shuffling of
+        doses.
+    shuffling_sync_list : list
+        List of inducers with which shuffling should be synchronized.
+    time_step_size : int
+        Number of milliseconds in each time step. Default: 60000.
+    time_step_units : str
+        Specific name of each time step (e.g. minute), to be used in
+        generated files. Default: 'min'.
 
     Notes
     -----
@@ -360,16 +430,22 @@ class LightSignal(platedesign.inducer.InducerBase):
                  led_channel=None,
                  id_prefix=None,
                  id_offset=0):
-        # Store name, units, led layout, and led channel
-        self.name = name
-        self.units = units
-        self.led_layout = led_layout
-        self.led_channel = led_channel
+        # Parent's __init__ stores name, units, led_layout, and led_channel,
+        # initializes doses table, and sets shuffling parameters.
+        super(StaggeredLightSignal, self).__init__(name=name,
+                                                   units=units,
+                                                   led_layout=led_layout,
+                                                   led_channel=led_channel)
+
+        # Renitialize time step attributes
+        # Default: one minute step
+        self.time_step_size = 1000*60
+        self.time_step_units = 'min'
 
         # Light signal
-        # Each value is the LED intensity for a minute.
+        # Each value is the LED intensity for a time step.
         self.light_signal = numpy.array([])
-        # Light intensity before the signal begins.
+        # Light intensity before the beginning of the signal.
         self.light_intensity_init = 0.
 
         # Store ID modifiers for dose table
@@ -378,21 +454,13 @@ class LightSignal(platedesign.inducer.InducerBase):
         self.id_prefix=id_prefix
         self.id_offset=id_offset
 
-        # Initialize an empty dose table
-        self._doses_table = pandas.DataFrame()
-        # Enable shuffling by default, but start with no shuffling and an
-        # empty list of inducers to synchronize shuffling with.
-        self.shuffling_enabled = True
-        self.shuffled_idx = None
-        self.shuffling_sync_list = []
-
     @property
     def _sampling_times_header(self):
         """
         Header used in the dose table to specify signal sampling times.
 
         """
-        return u"{} Sampling time (min)".format(self.name)
+        return u"{} Sampling Time ({})".format(self.name, self.time_step_units)
 
     @property
     def _signal_file_name_header(self):
@@ -416,10 +484,10 @@ class LightSignal(platedesign.inducer.InducerBase):
         Sampling times.
 
         Reading from this attribute will return the contents of the
-        "Sampling times" column from the dose table. Writing to this
-        attribute will reinitialize the doses table with the specified time
-        shifts. Any columns that are not the sampling times or IDs will be
-        lost.
+        "Sampling Times" column from the dose table. Writing to this
+        attribute will reinitialize the doses table with the specified
+        sampling times. Any columns that are not the sampling times or IDs
+        will be lost.
 
         """
         return self.doses_table[self._sampling_times_header].values
@@ -440,17 +508,6 @@ class LightSignal(platedesign.inducer.InducerBase):
         # Sampling times
         self._doses_table[self._sampling_times_header] = value
 
-    @property
-    def doses_table(self):
-        """
-        Table containing information of all the inducer concentrations.
-
-        """
-        if self.shuffled_idx is None:
-            return self._doses_table
-        else:
-            return self._doses_table.iloc[self.shuffled_idx]
-
     def set_signal_step(self, intensity_from, intensity_to):
         """
         Set a step light signal.
@@ -461,58 +518,6 @@ class LightSignal(platedesign.inducer.InducerBase):
         # Signal will be constant, as long as the largest sample time
         self.light_signal = numpy.ones(numpy.max(self.sampling_times)) * \
             intensity_to
-
-    def set_vol_from_shots(self,
-                           n_shots,
-                           n_replicates=1):
-        """
-        Set volume to prepare from number of shots and replicates.
-
-        This function does not have any function in a light inducer, and it
-        is only included due to being needed by the parent class.
-
-        """
-        pass
-
-    def sync_shuffling(self, inducer):
-        """
-        Register an inducer to synchronize shuffling with.
-
-        Inducers whose shuffling is synchronized should have the same
-        number of doses (i.e. the length of their doses table should be the
-        same). Shuffling synchronization is based on the controlling
-        inducer being able to directly modify the shuffling indices of the
-        controlled inducers. Therefore, this function sets the flag
-        ``shuffling_enabled`` in `inducer` to ``False``.
-
-        Parameters
-        ----------
-        inducer : Inducer
-            Inducer to synchronize shuffling with.
-
-        """
-        # Check length of doses table
-        if len(self.doses_table) != len(inducer.doses_table):
-            raise ValueError("inducers to synchronize should have the same "
-                "number of doses")
-        # Disable shuffling flag
-        inducer.shuffling_enabled = False
-        # Add to list of inducers to synchronize with
-        self.shuffling_sync_list.append(inducer)
-
-    def shuffle(self):
-        """
-        Apply random shuffling to the dose table.
-
-        """
-        if self.shuffling_enabled:
-            # Create list of indices, shuffle, and store.
-            shuffled_idx = list(range(len(self.doses_table)))
-            random.shuffle(shuffled_idx)
-            self.shuffled_idx = shuffled_idx
-            # Write shuffled indices on inducers to synchronize with
-            for inducer in self.shuffling_sync_list:
-                inducer.shuffled_idx = self.shuffled_idx
 
     def save_exp_setup_files(self, path='.'):
         """
@@ -529,23 +534,60 @@ class LightSignal(platedesign.inducer.InducerBase):
         """
         # Create DataFrame
         intensity_header = u"{} Intensity ({})".format(self.name, self.units)
-        signal_table = pandas.DataFrame(columns=['Time (min)', intensity_header])
+        time_header = u'Time ({})'.format(self.time_step_units)
+        signal_table = pandas.DataFrame(columns=[time_header, intensity_header])
 
         # Time values for the signal go from zero to the length of the signal
-        # in minutes.
+        # in time steps.
         # The initial intensity is considered to be set at time = -inf
-        signal_table['Time (min)'] = numpy.append([-numpy.inf],
-                                                range(len(self.light_signal)))
+        signal_table[time_header] = \
+            numpy.append([-numpy.inf], range(len(self.light_signal)))
 
-        
-        signal_table[intensity_header] = numpy.append([self.light_intensity_init],
-                                                    self.light_signal)
+        signal_table[intensity_header] = numpy.append(
+            [self.light_intensity_init], self.light_signal)
 
         # Time should be the index
-        signal_table.set_index('Time (min)', inplace=True)
+        signal_table.set_index(time_header, inplace=True)
 
         # Save DataFrame
         writer = pandas.ExcelWriter(os.path.join(path, self._signal_file_name),
                                     engine='openpyxl')
         signal_table.to_excel(writer)
         writer.save()
+
+    def get_lpa_intensity(self, dose_idx):
+        """
+        Get the LPA intensity sequence for a specified dose.
+
+        This function returns the fully resolved sequence of light
+        intensities such that it can be directly copied into
+        ``lpaprogram.LPA.intensity[:,row,col,channel]``.
+
+        Parameters
+        ----------
+        dose_idx : int
+            Dose for which to generate the intensity sequence.
+        n_steps : int
+            Number of steps in the sequence.
+
+        Returns
+        -------
+        array
+            `n_time_steps`-element array, with intensities to be recorded
+            in a LPA program for dose `dose_idx` over time.
+
+        """
+        # Get sampling time
+        ts = self.sampling_times[dose_idx]
+        # Assemble intensity sequence
+        intensity = numpy.ones(self.n_time_steps)*self.light_intensity_init
+        if (ts > 0) and (ts <= self.n_time_steps):
+            # Case 1: sampling time less or equal to total time
+            # Copy light signal up to ts to the end of intensity array
+            intensity[-ts:] = self.light_signal[0: ts]
+        elif (ts > 0) and (ts > self.n_time_steps):
+            # Case 2: sampling time greater than total time
+            # Copy a self.n_time_steps-long fragment of signal up to ts.
+            intensity = self.light_signal[ts - self.n_time_steps:ts]
+
+        return intensity

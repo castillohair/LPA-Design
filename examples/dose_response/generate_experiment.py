@@ -56,4 +56,8 @@ plate.apply_inducer(inducer=light_520, apply_to='wells')
 plate.apply_inducer(inducer=light_660, apply_to='wells')
 exp.add_plate(plate)
 
+# Light program time in minutes
+# Only needs to be specified in one light inducer
+light_520.n_time_steps = 8*60
+
 exp.generate()
