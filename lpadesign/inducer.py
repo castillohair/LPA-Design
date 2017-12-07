@@ -213,6 +213,9 @@ class LightInducer(LPAInducerBase):
         self.id_prefix=id_prefix
         self.id_offset=id_offset
 
+        # Initialize empty list of doses
+        self.intensities = []
+
     @property
     def _intensities_header(self):
         """
@@ -319,6 +322,8 @@ class LightInducer(LPAInducerBase):
             LPA program for dose `dose_idx`.
 
         """
+        if self.n_time_steps is None:
+            raise ValueError('number of time steps should be indicated')
         return numpy.ones(self.n_time_steps)*self.intensities[dose_idx]
 
 class StaggeredLightSignal(LPAInducerBase):
@@ -374,14 +379,14 @@ class StaggeredLightSignal(LPAInducerBase):
     id_offset : int
         Offset from which to generate the ID that identifies each inducer
         dose.
-    light_signal : array
+    signal : array
         The light signal is specified as an array of light intensities to
         apply on every time step (see attributes `time_step_size` and
         `time_step_units`).
-    light_intensity_init
+    signal_init
         Constant light intensity to hold before the beginning of the light
         signal.
-    sampling_times
+    sampling_time_steps
         Sampling times, in time steps (see attributes `time_step_size` and
         `time_step_units`).
     doses_table : DataFrame
@@ -444,9 +449,9 @@ class StaggeredLightSignal(LPAInducerBase):
 
         # Light signal
         # Each value is the LED intensity for a time step.
-        self.light_signal = numpy.array([])
+        self.signal = numpy.array([])
         # Light intensity before the beginning of the signal.
-        self.light_intensity_init = 0.
+        self.signal_init = 0.
 
         # Store ID modifiers for dose table
         if id_prefix is None:
@@ -454,8 +459,11 @@ class StaggeredLightSignal(LPAInducerBase):
         self.id_prefix=id_prefix
         self.id_offset=id_offset
 
+        # Initialize empty list of doses
+        self.sampling_time_steps = []
+
     @property
-    def _sampling_times_header(self):
+    def _sampling_time_steps_header(self):
         """
         Header used in the dose table to specify signal sampling times.
 
@@ -479,7 +487,7 @@ class StaggeredLightSignal(LPAInducerBase):
         return u"{} Signal.xlsx".format(self.name)
 
     @property
-    def sampling_times(self):
+    def sampling_time_steps(self):
         """
         Sampling times.
 
@@ -490,10 +498,10 @@ class StaggeredLightSignal(LPAInducerBase):
         will be lost.
 
         """
-        return self.doses_table[self._sampling_times_header].values
+        return self.doses_table[self._sampling_time_steps_header].values
 
-    @sampling_times.setter
-    def sampling_times(self, value):
+    @sampling_time_steps.setter
+    def sampling_time_steps(self, value):
         # Make sure that value is an integer array
         value = numpy.array(value, dtype=numpy.int)
         # Initialize dataframe with doses info
@@ -506,18 +514,33 @@ class StaggeredLightSignal(LPAInducerBase):
         self._doses_table[self._signal_file_name_header] = \
             self._signal_file_name
         # Sampling times
-        self._doses_table[self._sampling_times_header] = value
+        self._doses_table[self._sampling_time_steps_header] = value
 
-    def set_signal_step(self, intensity_from, intensity_to):
+    def set_step(self, initial, final, n_time_steps=None):
         """
         Set a step light signal.
 
+        Parameters
+        ----------
+        initial : float
+            Intensity value before the step signal.
+        final : float
+            Intensity value after the step signal.
+        n_time_steps : int, optional
+            Signal length, in time steps. If not specified, use the largest
+            sampling time step.
+
         """
+        if (n_time_steps is None) and (not self.sampling_time_steps.size):
+            raise ValueError('n_time_steps or sampling time steps should be '
+                'specified')
+        # Calculate number of steps if necessary
+        if n_time_steps is None:
+            n_time_steps = numpy.max(self.sampling_time_steps)
         # Initial light intensity
-        self.light_intensity_init = intensity_from
-        # Signal will be constant, as long as the largest sample time
-        self.light_signal = numpy.ones(numpy.max(self.sampling_times)) * \
-            intensity_to
+        self.signal_init = initial
+        # Signal will be constant, up to the largest sampling time
+        self.signal = numpy.ones(n_time_steps, dtype=float) * final
 
     def save_exp_setup_files(self, path='.'):
         """
@@ -541,10 +564,10 @@ class StaggeredLightSignal(LPAInducerBase):
         # in time steps.
         # The initial intensity is considered to be set at time = -inf
         signal_table[time_header] = \
-            numpy.append([-numpy.inf], range(len(self.light_signal)))
+            numpy.append([-numpy.inf], range(len(self.signal)))
 
         signal_table[intensity_header] = numpy.append(
-            [self.light_intensity_init], self.light_signal)
+            [self.signal_init], self.signal)
 
         # Time should be the index
         signal_table.set_index(time_header, inplace=True)
@@ -577,17 +600,19 @@ class StaggeredLightSignal(LPAInducerBase):
             in a LPA program for dose `dose_idx` over time.
 
         """
+        if self.n_time_steps is None:
+            raise ValueError('number of time steps should be indicated')
         # Get sampling time
-        ts = self.sampling_times[dose_idx]
+        ts = self.sampling_time_steps[dose_idx]
         # Assemble intensity sequence
-        intensity = numpy.ones(self.n_time_steps)*self.light_intensity_init
+        intensity = numpy.ones(self.n_time_steps)*self.signal_init
         if (ts > 0) and (ts <= self.n_time_steps):
             # Case 1: sampling time less or equal to total time
             # Copy light signal up to ts to the end of intensity array
-            intensity[-ts:] = self.light_signal[0: ts]
+            intensity[-ts:] = self.signal[0: ts]
         elif (ts > 0) and (ts > self.n_time_steps):
             # Case 2: sampling time greater than total time
             # Copy a self.n_time_steps-long fragment of signal up to ts.
-            intensity = self.light_signal[ts - self.n_time_steps:ts]
+            intensity = self.signal[ts - self.n_time_steps:ts]
 
         return intensity
