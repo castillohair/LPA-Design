@@ -186,6 +186,8 @@ class LPAPlate(platedesign.plate.Plate):
                 if isinstance(inducer, lpadesign.inducer.LPAInducerBase):
                     # Check that channel is within the allowed number of
                     # channels.
+                    if inducer.led_channel < 0:
+                        raise ValueError("LED channel must be non-negative")
                     if inducer.led_channel >= self.n_led_channels:
                         raise ValueError("inducer {} ".format(inducer.name) +\
                             "assigned to LED channel {} (zero-based), ".format(
@@ -194,7 +196,7 @@ class LPAPlate(platedesign.plate.Plate):
                                 self.n_led_channels))
                     # Check that no other inducer exists in channel
                     if lpa_inducers[inducer.led_channel] is not None:
-                        raise ValueError("more than one LPA inducers assigned "
+                        raise ValueError("more than one LPA inducer assigned "
                             "to plate {}, LED channel {}".format(
                                 self.name, inducer.led_channel))
                     # Store inducer
@@ -204,6 +206,10 @@ class LPAPlate(platedesign.plate.Plate):
         # Save nothing if no LPA inducers have been found.
         if all(inducer is None for inducer in lpa_inducers):
             return
+
+        # Check that LPA resource has been specified
+        if ('LPA' not in self.resources) or (len(self.resources['LPA']) < 1):
+            raise ValueError("LPA name should be specified as a plate resource")
 
         # Create folder for LPA files if necessary
         if not os.path.exists(os.path.join(path, self.lpa_files_path)):
@@ -221,19 +227,22 @@ class LPAPlate(platedesign.plate.Plate):
         # Get time step attributes
         time_step_size_all = [inducer.time_step_size
                               for inducer in lpa_inducers
-                              if inducer.time_step_size is not None]
+                              if inducer is not None and\
+                                inducer.time_step_size is not None]
         time_step_units_all = [inducer.time_step_units
                               for inducer in lpa_inducers
-                              if inducer.time_step_units is not None]
+                              if inducer is not None and\
+                                inducer.time_step_units is not None]
         n_time_steps_all = [inducer.n_time_steps
                             for inducer in lpa_inducers
-                            if inducer.n_time_steps is not None]
+                            if inducer is not None and\
+                                inducer.n_time_steps is not None]
         # There should be at least one element in each list
-        if not time_step_size_all:
+        if len(time_step_size_all) < 1:
             raise ValueError('time step size should be specified')
-        if not time_step_units_all:
+        if len(time_step_units_all) < 1:
             raise ValueError('time step units should be specified')
-        if not n_time_steps_all:
+        if len(n_time_steps_all) < 1:
             raise ValueError('number of time steps should be specified')
         # All time step attributes should be identical
         if not all([t==time_step_size_all[0] for t in time_step_size_all]):
@@ -246,10 +255,11 @@ class LPAPlate(platedesign.plate.Plate):
         time_step_size = time_step_size_all[0]
         time_step_units = time_step_units_all[0]
         n_time_steps = n_time_steps_all[0]
-        for inducer in inducers:
-            inducer.time_step_size = time_step_size
-            inducer.time_step_units = time_step_units
-            inducer.n_time_steps = n_time_steps
+        for inducer in lpa_inducers:
+            if inducer is not None:
+                inducer.time_step_size = time_step_size
+                inducer.time_step_units = time_step_units
+                inducer.n_time_steps = n_time_steps
         # Load time step attributes into LPA object
         self.lpa.step_size = time_step_size
         self.lpa.set_n_steps(n_time_steps)
@@ -502,6 +512,8 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
                 if isinstance(inducer, lpadesign.inducer.LPAInducerBase):
                     # Check that channel is within the allowed number of
                     # channels.
+                    if inducer.led_channel < 0:
+                        raise ValueError("LED channel must be non-negative")
                     if inducer.led_channel >= self.n_led_channels:
                         raise ValueError("inducer {} ".format(inducer.name) +\
                             "assigned to LED channel {} (zero-based), ".format(
@@ -510,7 +522,7 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
                                 self.n_led_channels))
                     # Check that no other inducer exists in channel
                     if lpa_inducers[inducer.led_channel] is not None:
-                        raise ValueError("more than one LPA inducers assigned "
+                        raise ValueError("more than one LPA inducer assigned "
                             "to plate {}, LED channel {}".format(
                                 self.name, inducer.led_channel))
                     # Store inducer
@@ -520,6 +532,10 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
         # Save nothing if no LPA inducers have been found.
         if all(inducer is None for inducer in lpa_inducers):
             return
+
+        # Check that LPA resource has been assigned
+        if len(self.resources['LPA']) < self.n_plates:
+            raise ValueError("LPA names should be specified as plate resources")
 
         # Create folder for LPA files if necessary
         if not os.path.exists(os.path.join(path, self.lpa_files_path)):
@@ -541,11 +557,11 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
                             for inducer in lpa_inducers
                             if inducer.n_time_steps is not None]
         # There should be at least one element in each list
-        if not time_step_size_all:
+        if len(time_step_size_all) < 1:
             raise ValueError('time step size should be specified')
-        if not time_step_units_all:
+        if len(time_step_units_all) < 1:
             raise ValueError('time step units should be specified')
-        if not n_time_steps_all:
+        if len(n_time_steps_all) < 1:
             raise ValueError('number of time steps should be specified')
         # All time step attributes should be identical
         if not all([t==time_step_size_all[0] for t in time_step_size_all]):
@@ -558,7 +574,7 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
         time_step_size = time_step_size_all[0]
         time_step_units = time_step_units_all[0]
         n_time_steps = n_time_steps_all[0]
-        for inducer in inducers:
+        for inducer in lpa_inducers:
             inducer.time_step_size = time_step_size
             inducer.time_step_units = time_step_units
             inducer.n_time_steps = n_time_steps

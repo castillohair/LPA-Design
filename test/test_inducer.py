@@ -17,7 +17,7 @@ import lpadesign
 
 class TestLPAInducerBase(unittest.TestCase):
     """
-    Tests for the LPAInducer class.
+    Tests for the LPAInducerBase class.
 
     """
     def setUp(self):
