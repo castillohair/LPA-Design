@@ -534,7 +534,8 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
             return
 
         # Check that LPA resource has been assigned
-        if len(self.resources['LPA']) < self.n_plates:
+        if ('LPA' not in self.resources) or \
+                (len(self.resources['LPA']) < self.n_plates):
             raise ValueError("LPA names should be specified as plate resources")
 
         # Create folder for LPA files if necessary
@@ -549,13 +550,16 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
         # Get time step attributes
         time_step_size_all = [inducer.time_step_size
                               for inducer in lpa_inducers
-                              if inducer.time_step_size is not None]
+                              if inducer is not None and\
+                                inducer.time_step_size is not None]
         time_step_units_all = [inducer.time_step_units
                               for inducer in lpa_inducers
-                              if inducer.time_step_units is not None]
+                              if inducer is not None and\
+                                inducer.time_step_units is not None]
         n_time_steps_all = [inducer.n_time_steps
                             for inducer in lpa_inducers
-                            if inducer.n_time_steps is not None]
+                              if inducer is not None and\
+                              inducer.n_time_steps is not None]
         # There should be at least one element in each list
         if len(time_step_size_all) < 1:
             raise ValueError('time step size should be specified')
@@ -575,9 +579,10 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
         time_step_units = time_step_units_all[0]
         n_time_steps = n_time_steps_all[0]
         for inducer in lpa_inducers:
-            inducer.time_step_size = time_step_size
-            inducer.time_step_units = time_step_units
-            inducer.n_time_steps = n_time_steps
+            if inducer is not None:
+                inducer.time_step_size = time_step_size
+                inducer.time_step_units = time_step_units
+                inducer.n_time_steps = n_time_steps
 
         # Set LPA name, load LED layouts, set step size, and empty intensity array
         for lpa_idx, lpa in enumerate(self.lpas):
