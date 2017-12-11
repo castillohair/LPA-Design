@@ -33,8 +33,8 @@ light_520 = lpadesign.inducer.StaggeredLightSignal(name='520nm Light',
                                                    led_layout='520-2-KB',
                                                    led_channel=0,
                                                    id_prefix='G')
-light_520.sampling_times = sampling_times
-light_520.set_signal_step(intensity_from=0, intensity_to=50)
+light_520.sampling_time_steps = sampling_times
+light_520.set_step(initial=0, final=50)
 # Light program time in minutes
 # Only needs to be specified in one light inducer
 light_520.n_time_steps = 8*60
@@ -42,13 +42,11 @@ light_520.n_time_steps = 8*60
 exp.add_inducer(light_520)
 
 # 660nm (red) light: constant
-light_660 = lpadesign.inducer.StaggeredLightSignal(name='660nm Light',
-                                                   led_layout='660-LS',
-                                                   led_channel=1,
-                                                   id_prefix='R')
-light_660.sampling_times = sampling_times
-light_660.light_intensity_init = 20.
-light_660.light_signal = numpy.ones(200)*20.
+light_660 = lpadesign.inducer.LightInducer(name='660nm Light',
+                                           led_layout='660-LS',
+                                           led_channel=1,
+                                           id_prefix='R')
+light_660.intensities = numpy.ones(24)*20.
 exp.add_inducer(light_660)
 
 # Plate for light-sensitive strain
