@@ -9,15 +9,14 @@ lpaprogram.LED_CALIBRATION_PATH = "../supporting_files/led-calibration"
 
 # Experiment
 exp = platedesign.experiment.Experiment()
-exp.n_replicates = 5
+exp.n_replicates = 3
 exp.plate_resources['LPA'] = ['Jennie',
                               'Picard',
                               'Kirk',
                               'Shannen',
-                              'Sisko',
                               ]
 exp.randomize_inducers = True
-exp.randomize_plate_resources = False
+exp.randomize_plate_resources = True
 exp.measurement_template = '../supporting_files/template_FlowCal.xlsx'
 exp.measurement_order = 'LPA'
 exp.replicate_measurements = ['Date', 'Run by']
@@ -56,7 +55,7 @@ plate.total_media_vol = 16000.
 plate.sample_media_vol = 500.
 plate.cell_setup_method = 'fixed_volume'
 plate.cell_predilution = 100
-plate.cell_predilution_vol = 1000
+plate.cell_predilution_vol = 300
 plate.cell_shot_vol = 5
 plate.apply_inducer(inducer=light_520, apply_to='wells')
 plate.apply_inducer(inducer=light_660, apply_to='wells')

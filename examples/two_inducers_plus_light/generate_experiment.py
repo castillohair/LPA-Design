@@ -9,7 +9,8 @@ lpaprogram.LED_CALIBRATION_PATH = "../supporting_files/led-calibration"
 
 # Experiment
 exp = platedesign.experiment.Experiment()
-exp.n_replicates = 5
+exp.n_replicates = 3
+exp.n_replicates_extra_inducer = 2
 exp.plate_resources['LPA'] = ['Jennie',
                               'Picard',
                               'Kirk',
@@ -53,8 +54,8 @@ light_520 = lpadesign.inducer.LightInducer(name='520nm Light',
                                            led_channel=0,
                                            id_prefix='G')
 light_520.intensities = numpy.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1])*50
-exp.add_inducer(light_520)
 xyl.sync_shuffling(light_520)
+exp.add_inducer(light_520)
 
 # 660nm (red) light: constant throughout all wells
 light_660 = lpadesign.inducer.LightInducer(name='660nm Light',
@@ -62,8 +63,8 @@ light_660 = lpadesign.inducer.LightInducer(name='660nm Light',
                                            led_channel=1,
                                            id_prefix='R')
 light_660.intensities = numpy.array([1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0])*20
-exp.add_inducer(light_660)
 xyl.sync_shuffling(light_660)
+exp.add_inducer(light_660)
 
 # LPA array for light-sensing strain
 platearray = lpadesign.plate.LPAPlateArray(
@@ -93,7 +94,7 @@ for plate in exp.plates:
     plate.sample_media_vol = 500.
     plate.cell_setup_method = 'fixed_volume'
     plate.cell_predilution = 100
-    plate.cell_predilution_vol = 1000
+    plate.cell_predilution_vol = 300
     plate.cell_shot_vol = 5
 
 # Light program time in minutes
