@@ -3,3 +3,6 @@ dist
 LPA_Design.egg-info
 *.pyc
 *.ipynb_checkpoints
+examples/*/replicate*
+examples/*/experiment_setup.xlsx
+examples/*/*Light Signal.xlsx
