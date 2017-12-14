@@ -7,6 +7,7 @@ Unit tests for inducer classes
 import itertools
 import os
 import random
+import six
 import shutil
 import unittest
 
@@ -356,7 +357,7 @@ class TestLightInducer(unittest.TestCase):
         # Calling get_lpa_intensity without setting number of steps should raise
         # an exception.
         errmsg = 'number of time steps should be indicated'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             light_520.get_lpa_intensity(0)
 
     def test_get_lpa_intensities(self):
@@ -390,7 +391,11 @@ class TestLightInducer(unittest.TestCase):
         light_520.shuffle()
         # Check output of get_lpa_intensity
         # Values have been obtained from shuffling with seed 1
-        values = numpy.array([8, 0, 3, 4, 5, 2, 9, 6, 7, 1])*5
+        # Shuffling results are different in python 2 and 3
+        if six.PY2:
+            values = numpy.array([8, 0, 3, 4, 5, 2, 9, 6, 7, 1])*5
+        elif six.PY3:
+            values = numpy.array([6, 8, 9, 7, 5, 3, 0, 4, 1, 2])*5
         for i in range(10):
             numpy.testing.assert_almost_equal(
                 light_520.get_lpa_intensity(i),
@@ -408,7 +413,11 @@ class TestLightInducer(unittest.TestCase):
         light_520.shuffle()
         # The following indices give the correct shuffled intensities array
         # after setting the random seed to one.
-        shuffling_ind = [10, 5, 0, 4, 9, 7, 3, 2, 6, 8, 1]
+        # Shuffling results are different in python 2 and 3
+        if six.PY2:
+            shuffling_ind = [10, 5, 0, 4, 9, 7, 3, 2, 6, 8, 1]
+        else:
+            shuffling_ind = [6, 8, 10, 7, 5, 3, 0, 4, 1, 9, 2]
         # Check concentrations
         intensities = numpy.linspace(0,1,11)
         numpy.testing.assert_almost_equal(light_520.intensities,
@@ -543,7 +552,11 @@ class TestLightInducer(unittest.TestCase):
 
         # The following indices give the correct shuffled intensities array
         # after setting the random seed to one.
-        shuffling_ind = [10, 5, 0, 4, 9, 7, 3, 2, 6, 8, 1]
+        # Shuffling results are different in python 2 and 3
+        if six.PY2:
+            shuffling_ind = [10, 5, 0, 4, 9, 7, 3, 2, 6, 8, 1]
+        else:
+            shuffling_ind = [6, 8, 10, 7, 5, 3, 0, 4, 1, 9, 2]
         # Check intensities for independent inducer
         intensities = numpy.linspace(0,1,11)
         numpy.testing.assert_almost_equal(light_520.intensities,
@@ -597,7 +610,11 @@ class TestLightInducer(unittest.TestCase):
         light_660.shuffle()
         # The following indices give the correct shuffled intensities array
         # after setting the random seed to one.
-        shuffling_ind = [10, 5, 0, 4, 9, 7, 3, 2, 6, 8, 1]
+        # Shuffling results are different in python 2 and 3
+        if six.PY2:
+            shuffling_ind = [10, 5, 0, 4, 9, 7, 3, 2, 6, 8, 1]
+        else:
+            shuffling_ind = [6, 8, 10, 7, 5, 3, 0, 4, 1, 9, 2]
         # Check intensities for independent inducer
         intensities = numpy.linspace(0,1,11)
         numpy.testing.assert_almost_equal(light_520.intensities,
@@ -767,7 +784,7 @@ class TestStaggeredLightSignal(unittest.TestCase):
             id_prefix='G')
         # Call set step without setting sampling times
         errmsg = 'n_time_steps or sampling time steps should be specified'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             light_520.set_step(0, 50)
 
     def test_set_step_1(self):

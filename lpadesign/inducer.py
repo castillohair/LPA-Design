@@ -285,18 +285,18 @@ class LightInducer(LPAInducerBase):
 
         # Calculate gradient
         if scale == 'linear':
-            self.intensities = numpy.linspace(min, max, n/n_repeat)
+            self.intensities = numpy.linspace(min, max, n//n_repeat)
         elif scale == 'log':
             if use_zero:
                 self.intensities = numpy.logspace(numpy.log10(min),
                                                   numpy.log10(max),
-                                                  (n/n_repeat - 1))
+                                                  (n//n_repeat - 1))
                 self.intensities = \
                     numpy.concatenate(([0], self.intensities))
             else:
                 self.intensities = numpy.logspace(numpy.log10(min),
                                                   numpy.log10(max),
-                                                  n/n_repeat)
+                                                  n//n_repeat)
         else:
             raise ValueError("scale {} not recognized".format(scale))
 

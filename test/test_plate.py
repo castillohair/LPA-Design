@@ -8,6 +8,7 @@ import collections
 import itertools
 import os
 import random
+import six
 import shutil
 import unittest
 
@@ -169,7 +170,7 @@ class TestLPAPlate(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'LED channel must be non-negative'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
     def test_save_rep_setup_files_error_channel_out_of_range(self):
@@ -197,7 +198,7 @@ class TestLPAPlate(unittest.TestCase):
         # Attempt to generate rep setup files
         errmsg = r'inducer 520nm Light assigned to LED channel 3 ' +\
             r'\(zero-based\), device only has 2 channels'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
     def test_save_rep_setup_files_error_too_many_inducers(self):
@@ -232,7 +233,7 @@ class TestLPAPlate(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'more than one LPA inducer assigned to plate P1, LED channel 1'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
     def test_save_rep_setup_files_error_no_lpa(self):
@@ -258,7 +259,7 @@ class TestLPAPlate(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'LPA name should be specified as a plate resource'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
     def test_save_rep_setup_files_error_no_time_step_info(self):
@@ -290,7 +291,7 @@ class TestLPAPlate(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'time step size should be specified'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify time step size
@@ -298,7 +299,7 @@ class TestLPAPlate(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'time step units should be specified'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify time step units
@@ -306,7 +307,7 @@ class TestLPAPlate(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'number of time steps should be specified'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify number of time steps
@@ -344,7 +345,7 @@ class TestLPAPlate(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'all time step sizes should be the same'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify time step size
@@ -352,7 +353,7 @@ class TestLPAPlate(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'all time step units should be the same'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify time step units
@@ -360,7 +361,7 @@ class TestLPAPlate(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'all number of time steps should be the same'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify number of time steps
@@ -398,7 +399,7 @@ class TestLPAPlate(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'all time step sizes should be the same'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify time step size
@@ -406,7 +407,7 @@ class TestLPAPlate(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'all time step units should be the same'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify time step units
@@ -414,7 +415,7 @@ class TestLPAPlate(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'all number of time steps should be the same'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify number of time steps
@@ -1806,7 +1807,7 @@ class TestLPAPlateArray(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'LED channel must be non-negative'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
     def test_save_rep_setup_files_error_channel_out_of_range(self):
@@ -1843,7 +1844,7 @@ class TestLPAPlateArray(unittest.TestCase):
         # Attempt to generate rep setup files
         errmsg = r'inducer 520nm Light assigned to LED channel 3 ' +\
             r'\(zero-based\), device only has 2 channels'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
     def test_save_rep_setup_files_error_too_many_inducers(self):
@@ -1887,7 +1888,7 @@ class TestLPAPlateArray(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'more than one LPA inducer assigned to plate PA1, LED channel 1'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
     def test_save_rep_setup_files_error_no_lpa(self):
@@ -1917,7 +1918,7 @@ class TestLPAPlateArray(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'LPA names should be specified as plate resources'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
     def test_save_rep_setup_files_error_no_time_step_info(self):
@@ -1958,7 +1959,7 @@ class TestLPAPlateArray(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'time step size should be specified'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify time step size
@@ -1966,7 +1967,7 @@ class TestLPAPlateArray(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'time step units should be specified'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify time step units
@@ -1974,7 +1975,7 @@ class TestLPAPlateArray(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'number of time steps should be specified'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify number of time steps
@@ -2021,7 +2022,7 @@ class TestLPAPlateArray(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'all time step sizes should be the same'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify time step size
@@ -2029,7 +2030,7 @@ class TestLPAPlateArray(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'all time step units should be the same'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify time step units
@@ -2037,7 +2038,7 @@ class TestLPAPlateArray(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'all number of time steps should be the same'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify number of time steps
@@ -2084,7 +2085,7 @@ class TestLPAPlateArray(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'all time step sizes should be the same'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify time step size
@@ -2092,7 +2093,7 @@ class TestLPAPlateArray(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'all time step units should be the same'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify time step units
@@ -2100,7 +2101,7 @@ class TestLPAPlateArray(unittest.TestCase):
 
         # Attempt to generate rep setup files
         errmsg = 'all number of time steps should be the same'
-        with self.assertRaisesRegexp(ValueError, errmsg):
+        with six.assertRaisesRegex(self, ValueError, errmsg):
             p.save_rep_setup_files(path=self.temp_dir)
 
         # Specify number of time steps

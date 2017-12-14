@@ -5,6 +5,7 @@ Module that contains the LPAPlate and LPAPlateArray classes.
 """
 
 import os
+import six
 
 import numpy
 
@@ -181,7 +182,7 @@ class LPAPlate(platedesign.plate.Plate):
         # Recover LPA inducers
         lpa_inducers = [None]*self.n_led_channels
         lpa_inducers_apply_to = [None]*self.n_led_channels
-        for apply_to, inducers in self.inducers.iteritems():
+        for apply_to, inducers in six.iteritems(self.inducers):
             for inducer in inducers:
                 if isinstance(inducer, lpadesign.inducer.LPAInducerBase):
                     # Check that channel is within the allowed number of
@@ -507,7 +508,7 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
         # Recover LPA inducers
         lpa_inducers = [None]*self.n_led_channels
         lpa_inducers_apply_to = [None]*self.n_led_channels
-        for apply_to, inducers in self.inducers.iteritems():
+        for apply_to, inducers in six.iteritems(self.inducers):
             for inducer in inducers:
                 if isinstance(inducer, lpadesign.inducer.LPAInducerBase):
                     # Check that channel is within the allowed number of
