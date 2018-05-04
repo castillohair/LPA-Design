@@ -5,7 +5,7 @@ import platedesign
 import lpadesign
 
 # lpaprogram requires LED calibration data
-lpaprogram.LED_CALIBRATION_PATH = "../supporting_files/led-calibration"
+lpaprogram.LED_CALIBRATION_PATH = "../supporting_files/LPA Calibration Data"
 
 # Experiment
 exp = platedesign.experiment.Experiment()

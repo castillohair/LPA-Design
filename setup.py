@@ -58,7 +58,7 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
 
         # Indicate who your project is intended for
         'Intended Audience :: Science/Research',
@@ -85,10 +85,10 @@ setup(
     # your project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=['lpaprogram>=1.0.0b5',
+    install_requires=['Lpa-Program>=1.0.0',
                       'numpy>=1.12.1',
                       'pandas>=0.20.2',
-                      'platedesign>=1.0.0b1',
+                      'Plate-Design>=1.0.0',
                       'six>=1.10.0',
                       'xlrd>=1.0.0'],
 

@@ -99,7 +99,7 @@ class LPAPlate(platedesign.plate.Plate):
     lpa_optimize_dc : list of bool
         Each element indicates whether dot correction should be optimized
         on each LED channel when running ``save_rep_setup_files()``.
-        Default: all True.
+        Default: all False.
     lpa_optimize_dc_uniform : list of bool
         Each element indicates whether dot correction should be optimized
         uniformly on each LED channel when running
@@ -129,13 +129,9 @@ class LPAPlate(platedesign.plate.Plate):
         self.lpa = lpaprogram.LPA(n_rows=n_rows,
                                   n_cols=n_cols,
                                   n_channels=n_led_channels)
-
-        # Default gcal and dc values
-        self.lpa.set_all_gcal(255)
-        self.lpa.set_all_dc(8)
         
         # Initialize LPA options
-        self.lpa_optimize_dc = [True]*n_led_channels
+        self.lpa_optimize_dc = [False]*n_led_channels
         self.lpa_optimize_dc_uniform = [True]*n_led_channels
         self.lpa_end_with_leds_off = True
         self.lpa_files_path = 'LPA Files'
@@ -312,6 +308,7 @@ class LPAPlate(platedesign.plate.Plate):
                 enumerate(zip(self.lpa_optimize_dc,
                               self.lpa_optimize_dc_uniform)):
             if optimize_dc:
+                self.lpa.dc_lock = False
                 self.lpa.optimize_dc(channel=channel, uniform=uniform)
 
         # Discretize intensities
@@ -413,7 +410,7 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
     lpa_optimize_dc : list of bool
         Each element indicates whether dot correction should be optimized
         on each LED channel when running ``save_rep_setup_files()``.
-        Default: all True.
+        Default: all False.
     lpa_optimize_dc_uniform : list of bool
         Each element indicates whether dot correction should be optimized
         uniformly on each LED channel when running
@@ -454,14 +451,11 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
             lpa = lpaprogram.LPA(n_rows=plate_n_rows,
                                  n_cols=plate_n_cols,
                                  n_channels=n_led_channels)
-            # Default gcal and dc values
-            lpa.set_all_gcal(255)
-            lpa.set_all_dc(8)
             # Store
             self.lpas.append(lpa)
         
         # Initialize LPA options
-        self.lpa_optimize_dc = [True]*n_led_channels
+        self.lpa_optimize_dc = [False]*n_led_channels
         self.lpa_optimize_dc_uniform = [True]*n_led_channels
         self.lpa_end_with_leds_off = True
         self.lpa_files_path = 'LPA Files'
@@ -656,6 +650,7 @@ class LPAPlateArray(LPAPlate, platedesign.plate.PlateArray):
                     enumerate(zip(self.lpa_optimize_dc,
                                   self.lpa_optimize_dc_uniform)):
                 if optimize_dc:
+                    lpa.dc_lock = False
                     lpa.optimize_dc(channel=channel, uniform=uniform)
 
             # Discretize intensities
