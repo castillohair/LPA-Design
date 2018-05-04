@@ -839,7 +839,9 @@ class TestStaggeredLightSignal(unittest.TestCase):
         signal_exp[u"520nm Light Intensity (µmol/(m^2*s))"] = \
             numpy.array([2, 3, 3, 4, 2, 2, 2, 1, 5])
         # Check
-        pandas.testing.assert_frame_equal(signal_df, signal_exp)
+        pandas.testing.assert_frame_equal(signal_df,
+                                          signal_exp,
+                                          check_dtype=False)
 
     def test_get_lpa_intensity_1(self):
         light_520 = lpadesign.inducer.StaggeredLightSignal(

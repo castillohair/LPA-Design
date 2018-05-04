@@ -5,7 +5,7 @@ import platedesign
 import lpadesign
 
 # lpaprogram requires LED calibration data
-lpaprogram.LED_CALIBRATION_PATH = "../supporting_files/led-calibration"
+lpaprogram.LED_CALIBRATION_PATH = "../supporting_files/LPA Calibration Data"
 
 # Experiment
 exp = platedesign.experiment.Experiment()
@@ -28,8 +28,8 @@ light_520 = lpadesign.inducer.LightInducer(name='520nm Light',
                                            led_layout='520-2-KB',
                                            led_channel=0,
                                            id_prefix='G')
-light_520.set_gradient(min=0.1,
-                       max=100.,
+light_520.set_gradient(min=0.05,
+                       max=50.,
                        n=24,
                        scale='log',
                        use_zero=True)
