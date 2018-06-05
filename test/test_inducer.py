@@ -751,6 +751,55 @@ class TestLightSignal(unittest.TestCase):
         # Test signal labels attribute
         numpy.testing.assert_array_equal(light_520.signal_labels, ['']*11)
 
+    def test_n_time_steps_writing(self):
+        light_520 = lpadesign.inducer.LightSignal(
+            name='520nm Light',
+            led_layout='520-2-KB',
+            led_channel=1,
+            id_prefix='G')
+        # Writing intensities should generate a corresponding _doses_table
+        light_520.intensities = numpy.array([numpy.linspace(0,1,11),
+                                             numpy.linspace(10,20,11)])
+
+        # Test number of time steps
+        self.assertEqual(light_520.n_time_steps, 2)
+
+        # Writing to n_time_steps should have no effect
+        light_520.n_time_steps = 5
+        self.assertEqual(light_520.n_time_steps, 2)
+
+    def test_intensities_assignment_custom_id(self):
+        light_520 = lpadesign.inducer.LightSignal(
+            name='520nm Light',
+            units='W/m^2',
+            led_layout='520-2-KB',
+            led_channel=1,
+            id_prefix='G',
+            id_offset=24)
+        # Writing intensities should generate a corresponding _doses_table
+        light_520.intensities = numpy.array([numpy.linspace(0,1,11),
+                                             numpy.linspace(10,20,11)])
+
+        # Test number of time steps
+        self.assertEqual(light_520.n_time_steps, 2)
+        # Test doses table
+        df = pandas.DataFrame()
+        df[u'520nm Light Intensity (W/m^2) at t = 0 min'] = \
+                numpy.linspace(0,1,11)
+        df[u'520nm Light Intensity (W/m^2) at t = 1 min'] = \
+                numpy.linspace(10,20,11)
+        df[u'520nm Light Signal Label'] = [""]*11
+        df.index=['G{:03d}'.format(i + 1 +24) for i in range(11)]
+        df.index.name='ID'
+        pandas.util.testing.assert_frame_equal(light_520._doses_table, df)
+        pandas.util.testing.assert_frame_equal(light_520.doses_table, df)
+        # Test intensities attribute
+        numpy.testing.assert_array_equal(light_520.intensities,
+                                         numpy.array([numpy.linspace(0,1,11),
+                                                      numpy.linspace(10,20,11)]))
+        # Test signal labels attribute
+        numpy.testing.assert_array_equal(light_520.signal_labels, ['']*11)
+
     def test_intensities_and_signal_labels_assignment(self):
         light_520 = lpadesign.inducer.LightSignal(
             name='520nm Light',
@@ -786,6 +835,30 @@ class TestLightSignal(unittest.TestCase):
         numpy.testing.assert_array_equal(
             light_520.signal_labels,
             ["Signal {}".format(i+1) for i in range(11)])
+
+    def test_set_staggered_signal_error_signal_length(self):
+        # Define LightSignal object
+        light_520 = lpadesign.inducer.LightSignal(
+            name='520nm Light',
+            led_layout='520-2-KB',
+            led_channel=1,
+            id_prefix='G')
+
+        # Calling set_staggered_signal with a signal with less than 8 elements
+        # should trigger an error.
+        errmsg = 'signal should have at least 8 elements'
+        with six.assertRaisesRegex(self, ValueError, errmsg):
+            light_520.set_staggered_signal(
+                signal=numpy.arange(7, dtype=float),
+                signal_init=0,
+                sampling_time_steps=numpy.array([0, 2, 4, 6, 8]),
+                n_time_steps=15)
+
+        light_520.set_staggered_signal(
+            signal=numpy.arange(8, dtype=float),
+            signal_init=0,
+            sampling_time_steps=numpy.array([0, 2, 4, 6, 8]),
+            n_time_steps=15)
 
     def test_set_staggered_signal_1(self):
         # Define signal and sampling times
@@ -824,6 +897,82 @@ class TestLightSignal(unittest.TestCase):
         numpy.testing.assert_array_equal(light_520.signal_labels,
                                          signal_labels_exp)
 
+    def test_set_staggered_signal_2(self):
+        # Define signal and sampling times
+        signal = numpy.arange(18, dtype=float)
+        signal_init = 3.
+        sampling_times = numpy.array([0, 18, 8, 4, 16, 12])
+
+        # Define LightSignal object
+        light_520 = lpadesign.inducer.LightSignal(
+            name='520nm Light',
+            led_layout='520-2-KB',
+            led_channel=1,
+            id_prefix='G')
+
+        # Generate staggered signal
+        light_520.set_staggered_signal(signal=signal,
+                                       signal_init=signal_init,
+                                       sampling_time_steps=sampling_times,
+                                       n_time_steps=18)
+
+        # Test time steps
+        self.assertEqual(light_520.n_time_steps, 18)
+
+        # Test intensities
+        intensities_exp = numpy.array(
+            [[3, 3, 3, 3, 3, 3, 3, 3, 3, 3,  3,  3,  3,  3,  3,  3,  3,  3],
+             [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+             [3, 3, 3, 3, 3, 3, 3, 3, 3, 3,  0,  1,  2,  3,  4,  5,  6,  7],
+             [3, 3, 3, 3, 3, 3, 3, 3, 3, 3,  3,  3,  3,  3,  0,  1,  2,  3],
+             [3, 3, 0, 1, 2, 3, 4, 5, 6, 7,  8,  9, 10, 11, 12, 13, 14, 15],
+             [3, 3, 3, 3, 3, 3, 0, 1, 2, 3,  4,  5,  6,  7,  8,  9, 10, 11]],
+            dtype=float).T
+        numpy.testing.assert_array_equal(light_520.intensities, intensities_exp)
+
+        # Test signal labels
+        signal_labels_exp = ["Sampling time: {} min".format(ts)
+                             for ts in sampling_times]
+        numpy.testing.assert_array_equal(light_520.signal_labels,
+                                         signal_labels_exp)
+
+    def test_set_staggered_signal_no_signal_labels(self):
+        # Define signal and sampling times
+        signal = numpy.arange(10, dtype=float)
+        signal_init = 6
+        sampling_times = numpy.array([0, 2, 4, 6, 8])
+
+        # Define LightSignal object
+        light_520 = lpadesign.inducer.LightSignal(
+            name='520nm Light',
+            led_layout='520-2-KB',
+            led_channel=1,
+            id_prefix='G')
+
+        # Generate staggered signal
+        light_520.set_staggered_signal(signal=signal,
+                                       signal_init=signal_init,
+                                       sampling_time_steps=sampling_times,
+                                       n_time_steps=15,
+                                       set_signal_labels=False)
+
+        # Test time steps
+        self.assertEqual(light_520.n_time_steps, 15)
+
+        # Test intensities
+        intensities_exp = numpy.array(
+            [[6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6],
+             [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 0, 1],
+             [6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 0, 1, 2, 3],
+             [6, 6, 6, 6, 6, 6, 6, 6, 6, 0, 1, 2, 3, 4, 5],
+             [6, 6, 6, 6, 6, 6, 6, 0, 1, 2, 3, 4, 5, 6, 7]], dtype=float).T
+        numpy.testing.assert_array_equal(light_520.intensities, intensities_exp)
+
+        # Test signal labels
+        signal_labels_exp = [""]*5
+        numpy.testing.assert_array_equal(light_520.signal_labels,
+                                         signal_labels_exp)
+
         # Test doses table
         doses_table_exp = pandas.DataFrame()
         for i in range(15):
@@ -837,7 +986,6 @@ class TestLightSignal(unittest.TestCase):
                                                doses_table_exp)
         pandas.util.testing.assert_frame_equal(light_520.doses_table,
                                                doses_table_exp)
-
 
     def test_get_lpa_intensities(self):
         light_520 = lpadesign.inducer.LightSignal(
@@ -883,6 +1031,93 @@ class TestLightSignal(unittest.TestCase):
         for i in range(11):
             numpy.testing.assert_almost_equal(light_520.get_lpa_intensity(i),
                                               values[:,i])
+
+    def test_shuffle(self):
+        light_520 = lpadesign.inducer.LightSignal(
+            name='520nm Light',
+            led_layout='520-2-KB',
+            led_channel=1,
+            id_prefix='G')
+        # Writing intensities should generate a corresponding _doses_table
+        light_520.intensities = numpy.array([numpy.linspace(0,1,11),
+                                             numpy.linspace(10,20,11)])
+        light_520.signal_labels = ['Signal {}'.format(i+1) for i in range(11)]
+        # Shuffle
+        random.seed(1)
+        light_520.shuffle()
+        # The following indices give the correct shuffled intensities array
+        # after setting the random seed to one.
+        # Shuffling results are different in python 2 and 3
+        if six.PY2:
+            shuffling_ind = [10, 5, 0, 4, 9, 7, 3, 2, 6, 8, 1]
+        else:
+            shuffling_ind = [6, 8, 10, 7, 5, 3, 0, 4, 1, 9, 2]
+        # Check intensities
+        intensities_exp = numpy.array([numpy.linspace(0,1,11),
+                                       numpy.linspace(10,20,11)])
+        intensities_exp_sh = intensities_exp[:, shuffling_ind]
+        numpy.testing.assert_almost_equal(light_520.intensities,
+                                          intensities_exp_sh)
+        # Test signal labels attribute
+        signal_labels_exp = ['Signal {}'.format(i+1) for i in range(11)]
+        signal_labels_exp_sh = [signal_labels_exp[i] for i in shuffling_ind]
+        numpy.testing.assert_array_equal(
+            light_520.signal_labels,
+            signal_labels_exp_sh)
+
+        # Check unshuffled doses table
+        df = pandas.DataFrame()
+        df[u'520nm Light Intensity (µmol/(m^2*s)) at t = 0 min'] = \
+                intensities_exp[0]
+        df[u'520nm Light Intensity (µmol/(m^2*s)) at t = 1 min'] = \
+                intensities_exp[1]
+        df[u'520nm Light Signal Label'] = signal_labels_exp
+        df.index=['G{:03d}'.format(i + 1) for i in range(11)]
+        df.index.name='ID'
+        pandas.util.testing.assert_frame_equal(light_520._doses_table, df)
+        # Check shuffled doses table
+        pandas.util.testing.assert_frame_equal(light_520.doses_table,
+                                               df.iloc[shuffling_ind, :])
+
+    def test_shuffle_disabled(self):
+        light_520 = lpadesign.inducer.LightSignal(
+            name='520nm Light',
+            led_layout='520-2-KB',
+            led_channel=1,
+            id_prefix='G')
+        # Disable shuffling
+        light_520.shuffling_enabled = False
+        # Writing intensities should generate a corresponding _doses_table
+        light_520.intensities = numpy.array([numpy.linspace(0,1,11),
+                                             numpy.linspace(10,20,11)])
+        light_520.signal_labels = ['Signal {}'.format(i+1) for i in range(11)]
+        # Shuffle
+        random.seed(1)
+        light_520.shuffle()
+
+        # Check intensities
+        intensities_exp = numpy.array([numpy.linspace(0,1,11),
+                                       numpy.linspace(10,20,11)])
+        numpy.testing.assert_almost_equal(light_520.intensities,
+                                          intensities_exp)
+        # Test signal labels attribute
+        signal_labels_exp = ['Signal {}'.format(i+1) for i in range(11)]
+        numpy.testing.assert_array_equal(
+            light_520.signal_labels,
+            signal_labels_exp)
+
+        # Check unshuffled doses table
+        df = pandas.DataFrame()
+        df[u'520nm Light Intensity (µmol/(m^2*s)) at t = 0 min'] = \
+                intensities_exp[0]
+        df[u'520nm Light Intensity (µmol/(m^2*s)) at t = 1 min'] = \
+                intensities_exp[1]
+        df[u'520nm Light Signal Label'] = signal_labels_exp
+        df.index=['G{:03d}'.format(i + 1) for i in range(11)]
+        df.index.name='ID'
+        pandas.util.testing.assert_frame_equal(light_520._doses_table, df)
+        # Check shuffled doses table
+        pandas.util.testing.assert_frame_equal(light_520.doses_table, df)
 
 class TestStaggeredLightSignal(unittest.TestCase):
     """

@@ -328,6 +328,75 @@ class LightInducer(LPAInducerBase):
 
 class LightSignal(LPAInducerBase):
     """
+    Object that represents time-varying light intensities from LPA LEDs.
+
+    Parameters
+    ----------
+    name : str
+        Name of the inducer, to be used in generated files.
+    units : str, optional
+        Units in which light intensity is expressed.
+    led_layout : str, optional
+        Name of the LED layout associated with this inducer. A layout
+        describes a mapping from LED types to each well of an arbitrary
+        LPA, without reference to a specific LPA or LEDs. An Excel file
+        mapping LED layouts to calibrated LED sets must be specified to the
+        ``LPA-Program`` module. For more information, refer to
+        ``LPA-Program``'s documentation. The LED layout name can be
+        specified during the object's creation, or sometime before
+        generating the experiment files.
+    led_channel : int, optional
+        The LED channel used by the inducer in an LPA. This can be
+        specified during the object's creation, or sometime before
+        generating the experiment files.
+    id_prefix : str, optional
+        Prefix to be used for the ID that identifies each inducer dose.
+        If None, use the first letter of the inducer's name.
+    id_offset : int, optional
+        Offset from which to generate the ID that identifies each inducer
+        dose. Default: 0 (no offset).
+
+    Attributes
+    ----------
+    name : str
+        Name of the inducer, to be used in generated files.
+    units : str
+        Units in which light intensity is expressed.
+    led_layout : str
+        Name of the LED layout associated with this inducer.
+    led_channel : int, optional
+        The LED channel used by the inducer in an LPA.
+    id_prefix : str
+        Prefix to be used for the ID that identifies each inducer dose.
+    id_offset : int
+        Offset from which to generate the ID that identifies each inducer
+        dose.
+    intensities : array
+        Light intensities, as a 2D ``n_time_steps * n_doses`` array.
+    signal_labels: array
+        Labels assigned to each signal (dose).
+    doses_table : DataFrame
+        Table containing information of all the inducer intensities.
+
+    Other Attributes
+    ----------------
+    shuffling_enabled : bool
+        Whether shuffling of the doses table is enabled. If False, the
+        `shuffle` function will not change the order of the rows in the
+        doses table.
+    shuffled_idx : list
+        Randomized indices that result in the current shuffling of
+        doses.
+    shuffling_sync_list : list
+        List of inducers with which shuffling should be synchronized.
+    time_step_size : int
+        Number of milliseconds in each time step.
+    time_step_units : str
+        Specific name of each time step (e.g. minute), to be used in
+        generated files.
+    n_time_steps : int
+        Number of time steps currently in `intensity`. Read-only.
+
     """
     def __init__(self,
                  name,
@@ -358,6 +427,20 @@ class LightSignal(LPAInducerBase):
         self.intensities = numpy.empty((0,)*2)
 
     @property
+    def n_time_steps(self):
+        """
+        Number of time steps currently in `intensity`.
+
+        Read-only attribute. Writing to this attribute has no effect.
+
+        """
+        return self._n_time_steps
+
+    @n_time_steps.setter
+    def n_time_steps(self, value):
+        return
+
+    @property
     def _signal_labels_header(self):
         """
         Header to be used in the dose table to specify intensities.
@@ -368,11 +451,12 @@ class LightSignal(LPAInducerBase):
     @property
     def signal_labels(self):
         """
-        Signal Labels.
+        Labels assigned to each signal (dose).
 
         Reading from this attribute will return the contents of the
         Signal Label columns from the dose table. Writing to this attribute
-        will directly write into the Signal Label column.
+        will directly write into the Signal Label column. Note that writing
+        to `intensities` will delete all signal labels.
 
         """
         return self.doses_table[self._signal_labels_header].values
@@ -401,7 +485,7 @@ class LightSignal(LPAInducerBase):
     @property
     def intensities(self):
         """
-        Light intensities.
+        Light intensities, as a 2D ``n_time_steps * n_doses`` array.
 
         Reading from this attribute will return the contents of the
         intensities columns from the dose table. Writing to this attribute
@@ -418,7 +502,7 @@ class LightSignal(LPAInducerBase):
         if value.ndim != 2:
             raise ValueError("intensities should be a 2D array")
         # Initialize number of time steps
-        self.n_time_steps = value.shape[0]
+        self._n_time_steps = value.shape[0]
         # Initialize doses table
         self._doses_table = pandas.DataFrame(data=value.T)
         self._doses_table.columns = self._intensities_headers
@@ -438,7 +522,36 @@ class LightSignal(LPAInducerBase):
                              signal_init=0,
                              set_signal_labels=True):
         """
+        Set a time-varying staggered light signal.
+
+        For each time ``ts`` specified in `sampling_time_steps`, this
+        function constructs a light signal that contains the first ``ts``
+        values of `signal`, preceeded by as many copies of `signal_init`
+        as necessary such that the total light signal length is
+        `n_time_steps`. These constructed signals are stored in the
+        `intensities` attribute.
+
+        Parameters
+        ----------
+        signal : array
+            Light signal to stagger, as a list of intensity values applied
+            at each time step.
+        sampling_time_steps : array of int
+            Sampling time steps.
+        n_time_steps : int
+            Total number of time steps in the signal.
+        signal_init : float, optional
+            Initial signal value.
+        set_signal_labels : bool, optional
+            If True, `.signal_labels` will be filled with strings of the
+            form "Sampling time: 3 min".
+
         """
+        # Check that signal has as many elements as the largest sampling time
+        # step.
+        if len(signal) < numpy.max(sampling_time_steps):
+            raise ValueError("signal should have at least {} elements".format(
+                numpy.max(sampling_time_steps)))
         # Initialize intensity array
         intensities = numpy.zeros((n_time_steps,
                                    len(sampling_time_steps)))
@@ -468,11 +581,9 @@ class LightSignal(LPAInducerBase):
         """
         Get the LPA intensity sequence for a specified dose.
 
-        An LPA light inducer can have time-varying intensities, and/or only
-        partial information exposed via ``doses_table``. This function
-        returns the fully resolved sequence of light intensities such that
-        it can be directly copied into
-        ``lpaprogram.LPA.intensity[:,row,col,channel]``.
+        This function returns the fully resolved sequence of light
+        intensities such that it can be directly copied into
+        ``lpaprogram.LPA.intensity[:, row, col, channel]``.
 
         Parameters
         ----------
