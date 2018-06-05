@@ -326,17 +326,9 @@ class LightInducer(LPAInducerBase):
             raise ValueError('number of time steps should be indicated')
         return numpy.ones(self.n_time_steps)*self.intensities[dose_idx]
 
-class StaggeredLightSignal(LPAInducerBase):
+class LightSignal(LPAInducerBase):
     """
-    Object that represents a time-varying staggered light signal.
-
-    This inducer applies a time-varying light signal to many samples using
-    the "staggered sampling method" (see Notes for details).
-    Correspondingly, each dose of this inducer is associated with a
-    sampling time. A separate file, created during the Experiment Setup
-    phase, contains the signal values over time. The dose table contains
-    only the dose's sampling time and the name of the file with the signal
-    values.
+    Object that represents time-varying light intensities from LPA LEDs.
 
     Parameters
     ----------
@@ -371,7 +363,7 @@ class StaggeredLightSignal(LPAInducerBase):
     units : str
         Units in which light intensity is expressed.
     led_layout : str
-        Name of the LED layout associated with this inducer. 
+        Name of the LED layout associated with this inducer.
     led_channel : int, optional
         The LED channel used by the inducer in an LPA.
     id_prefix : str
@@ -379,20 +371,12 @@ class StaggeredLightSignal(LPAInducerBase):
     id_offset : int
         Offset from which to generate the ID that identifies each inducer
         dose.
-    signal : array
-        The light signal is specified as an array of light intensities to
-        apply on every time step (see attributes `time_step_size` and
-        `time_step_units`).
-    signal_init
-        Constant light intensity to hold before the beginning of the light
-        signal.
-    sampling_time_steps
-        Sampling times, in time steps (see attributes `time_step_size` and
-        `time_step_units`).
+    intensities : array
+        Light intensities, as a 2D ``n_time_steps * n_doses`` array.
+    signal_labels: array
+        Labels assigned to each signal (dose).
     doses_table : DataFrame
-        Table containing sampling time information.
-    n_time_steps : int
-        Number of time steps in the LPA program.
+        Table containing information of all the inducer intensities.
 
     Other Attributes
     ----------------
@@ -406,26 +390,12 @@ class StaggeredLightSignal(LPAInducerBase):
     shuffling_sync_list : list
         List of inducers with which shuffling should be synchronized.
     time_step_size : int
-        Number of milliseconds in each time step. Default: 60000.
+        Number of milliseconds in each time step.
     time_step_units : str
         Specific name of each time step (e.g. minute), to be used in
-        generated files. Default: 'min'.
-
-    Notes
-    -----
-    In order to measure a genetic system's time response to a time-varying
-    inducer signal, samples have to be taken out of the cell culture at
-    different times. If the culture is a bacterial culture in exponential
-    phase, this is equivalent to applying the inducer signal to multiple
-    samples in a fixed-time experiment, with a different time shift each.
-    This time shift is such that at the end of the experiment each sample
-    has been exposed to the signal only up to the sampling time. More
-    formally, the response of the cell culture to a signal of duration
-    ``t_signal`` at time ``ts_i < t_signal`` in an experiment of duration
-    ``t_exp`` is obtained by growing sample ``i`` under some initial fixed
-    signal value until ``t_exp - ts_i``, and then exposing the sample to
-    the signal from the beginning until time ``ts_i``. This is referred to
-    as the "staggered sampling method".
+        generated files.
+    n_time_steps : int
+        Number of time steps currently in `intensity`. Read-only.
 
     """
     def __init__(self,
@@ -436,22 +406,16 @@ class StaggeredLightSignal(LPAInducerBase):
                  id_prefix=None,
                  id_offset=0):
         # Parent's __init__ stores name, units, led_layout, and led_channel,
-        # initializes doses table, and sets shuffling parameters.
-        super(StaggeredLightSignal, self).__init__(name=name,
-                                                   units=units,
-                                                   led_layout=led_layout,
-                                                   led_channel=led_channel)
+        # initializes doses table, and sets shuffling and time step parameters.
+        super(LightSignal, self).__init__(name=name,
+                                          units=units,
+                                          led_layout=led_layout,
+                                          led_channel=led_channel)
 
         # Renitialize time step attributes
         # Default: one minute step
         self.time_step_size = 1000*60
         self.time_step_units = 'min'
-
-        # Light signal
-        # Each value is the LED intensity for a time step.
-        self.signal = numpy.array([])
-        # Light intensity before the beginning of the signal.
-        self.signal_init = 0.
 
         # Store ID modifiers for dose table
         if id_prefix is None:
@@ -459,124 +423,159 @@ class StaggeredLightSignal(LPAInducerBase):
         self.id_prefix=id_prefix
         self.id_offset=id_offset
 
-        # Initialize empty list of doses
-        self.sampling_time_steps = []
+        # Initialize empty array of intensities
+        self.intensities = numpy.empty((0,)*2)
 
     @property
-    def _sampling_time_steps_header(self):
+    def n_time_steps(self):
         """
-        Header used in the dose table to specify signal sampling times.
+        Number of time steps currently in `intensity`.
+
+        Read-only attribute. Writing to this attribute has no effect.
 
         """
-        return u"{} Sampling Time ({})".format(self.name, self.time_step_units)
+        return self._n_time_steps
 
-    @property
-    def _signal_file_name_header(self):
-        """
-        Header to be used in the dose table with the signal file name.
-
-        """
-        return u"{} Signal File".format(self.name)
+    @n_time_steps.setter
+    def n_time_steps(self, value):
+        return
 
     @property
-    def _signal_file_name(self):
+    def _signal_labels_header(self):
         """
-        The signal file name.
+        Header to be used in the dose table to specify intensities.
 
         """
-        return u"{} Signal.xlsx".format(self.name)
+        return u"{} Signal Label".format(self.name)
 
     @property
-    def sampling_time_steps(self):
+    def signal_labels(self):
         """
-        Sampling times.
+        Labels assigned to each signal (dose).
 
         Reading from this attribute will return the contents of the
-        "Sampling Times" column from the dose table. Writing to this
-        attribute will reinitialize the doses table with the specified
-        sampling times. Any columns that are not the sampling times or IDs
-        will be lost.
+        Signal Label columns from the dose table. Writing to this attribute
+        will directly write into the Signal Label column. Note that writing
+        to `intensities` will delete all signal labels.
 
         """
-        return self.doses_table[self._sampling_time_steps_header].values
+        return self.doses_table[self._signal_labels_header].values
 
-    @sampling_time_steps.setter
-    def sampling_time_steps(self, value):
-        # Make sure that value is an integer array
-        value = numpy.array(value, dtype=numpy.int)
-        # Initialize dataframe with doses info
+    @signal_labels.setter
+    def signal_labels(self, value):
+        # Make sure that value is a list with the appropriate length
+        if len(value) != len(self._doses_table):
+            raise ValueError("signal_labels should have a length of {}".format(
+                len(self._doses_table)))
+        # Assign values
+        self._doses_table[self._signal_labels_header] = value
+
+    @property
+    def _intensities_headers(self):
+        """
+        Headers to be used in the dose table to specify intensities.
+
+        """
+        return [u"{} Intensity ({}) at t = {} {}".format(self.name,
+                                                         self.units,
+                                                         i,
+                                                         self.time_step_units)
+                for i in range(self.n_time_steps)]
+
+    @property
+    def intensities(self):
+        """
+        Light intensities, as a 2D ``n_time_steps * n_doses`` array.
+
+        Reading from this attribute will return the contents of the
+        intensities columns from the dose table. Writing to this attribute
+        will reinitialize the doses table with the specified intensities.
+        Any columns that are not the intensities or IDs will be lost.
+
+        """
+        return self.doses_table[self._intensities_headers].values.T
+
+    @intensities.setter
+    def intensities(self, value):
+        # Make sure that value is a float 2D array
+        value = numpy.array(value, dtype=numpy.float)
+        if value.ndim != 2:
+            raise ValueError("intensities should be a 2D array")
+        # Initialize number of time steps
+        self._n_time_steps = value.shape[0]
+        # Initialize doses table
+        self._doses_table = pandas.DataFrame(data=value.T)
+        self._doses_table.columns = self._intensities_headers
+        # Row IDs
         ids = ['{}{:03d}'.format(self.id_prefix, i)
                for i in range(self.id_offset + 1,
-                              len(value) + self.id_offset + 1)]
-        self._doses_table = pandas.DataFrame({'ID': ids})
+                              value.shape[1] + self.id_offset + 1)]
+        self._doses_table['ID'] = ids
         self._doses_table.set_index('ID', inplace=True)
-        # Name of file with signal intensity values
-        self._doses_table[self._signal_file_name_header] = \
-            self._signal_file_name
-        # Sampling times
-        self._doses_table[self._sampling_time_steps_header] = value
+        # Empty signal labels
+        self._doses_table[self._signal_labels_header] = [""]*value.shape[1]
 
-    def set_step(self, initial, final, n_time_steps=None):
+    def set_staggered_signal(self,
+                             signal,
+                             sampling_time_steps,
+                             n_time_steps,
+                             signal_init=0,
+                             set_signal_labels=True):
         """
-        Set a step light signal.
+        Set a time-varying staggered light signal.
+
+        For each time ``ts`` specified in `sampling_time_steps`, this
+        function constructs a light signal that contains the first ``ts``
+        values of `signal`, preceeded by as many copies of `signal_init`
+        as necessary such that the total light signal length is
+        `n_time_steps`. These constructed signals are stored in the
+        `intensities` attribute.
 
         Parameters
         ----------
-        initial : float
-            Intensity value before the step signal.
-        final : float
-            Intensity value after the step signal.
-        n_time_steps : int, optional
-            Signal length, in time steps. If not specified, use the largest
-            sampling time step.
+        signal : array
+            Light signal to stagger, as a list of intensity values applied
+            at each time step.
+        sampling_time_steps : array of int
+            Sampling time steps.
+        n_time_steps : int
+            Total number of time steps in the signal.
+        signal_init : float, optional
+            Initial signal value.
+        set_signal_labels : bool, optional
+            If True, `.signal_labels` will be filled with strings of the
+            form "Sampling time: 3 min".
 
         """
-        if (n_time_steps is None) and (not self.sampling_time_steps.size):
-            raise ValueError('n_time_steps or sampling time steps should be '
-                'specified')
-        # Calculate number of steps if necessary
-        if n_time_steps is None:
-            n_time_steps = numpy.max(self.sampling_time_steps)
-        # Initial light intensity
-        self.signal_init = initial
-        # Signal will be constant, up to the largest sampling time
-        self.signal = numpy.ones(n_time_steps, dtype=float) * final
-
-    def save_exp_setup_files(self, path='.'):
-        """
-        Save accessory files during the experiment setup stage.
-
-        This function saves an Excel file containing the signal intensity
-        values over time.
-
-        Parameters
-        ----------
-        path : str
-            Folder in which to save files.
-
-        """
-        # Create DataFrame
-        intensity_header = u"{} Intensity ({})".format(self.name, self.units)
-        time_header = u'Time ({})'.format(self.time_step_units)
-        signal_table = pandas.DataFrame(columns=[time_header, intensity_header])
-
-        # Time values for the signal go from zero to the length of the signal
-        # in time steps.
-        # The initial intensity is considered to be set at time = -inf
-        signal_table[time_header] = \
-            numpy.append([-numpy.inf], range(len(self.signal)))
-
-        signal_table[intensity_header] = numpy.append(
-            [self.signal_init], self.signal)
-
-        # Time should be the index
-        signal_table.set_index(time_header, inplace=True)
-
-        # Save DataFrame
-        writer = pandas.ExcelWriter(os.path.join(path, self._signal_file_name),
-                                    engine='openpyxl')
-        signal_table.to_excel(writer)
-        writer.save()
+        # Check that signal has as many elements as the largest sampling time
+        # step.
+        if len(signal) < numpy.max(sampling_time_steps):
+            raise ValueError("signal should have at least {} elements".format(
+                numpy.max(sampling_time_steps)))
+        # Initialize intensity array
+        intensities = numpy.zeros((n_time_steps,
+                                   len(sampling_time_steps)))
+        # Iterate over every sampling time
+        for ts_idx, ts in enumerate(sampling_time_steps):
+            # Assemble intensity sequence
+            intensity = numpy.ones(n_time_steps)*signal_init
+            if (ts > 0) and (ts <= n_time_steps):
+                # Case 1: sampling time less or equal to total time
+                # Copy light signal up to ts to the end of intensity array
+                intensity[-ts:] = signal[0: ts]
+            elif (ts > 0) and (ts > n_time_steps):
+                # Case 2: sampling time greater than total time
+                # Copy a n_time_steps-long fragment of signal up to ts.
+                intensity = signal[ts - n_time_steps:ts]
+            # Store intensities
+            intensities[:, ts_idx] = intensity
+        # Assign to intensities array (dose table)
+        self.intensities = intensities
+        # Set signal labels if requested
+        if set_signal_labels:
+            self.signal_labels = ["Sampling time: {} {}".\
+                                      format(ts, self.time_step_units)
+                                  for ts in sampling_time_steps]
 
     def get_lpa_intensity(self, dose_idx):
         """
@@ -584,35 +583,18 @@ class StaggeredLightSignal(LPAInducerBase):
 
         This function returns the fully resolved sequence of light
         intensities such that it can be directly copied into
-        ``lpaprogram.LPA.intensity[:,row,col,channel]``.
+        ``lpaprogram.LPA.intensity[:, row, col, channel]``.
 
         Parameters
         ----------
         dose_idx : int
             Dose for which to generate the intensity sequence.
-        n_steps : int
-            Number of steps in the sequence.
 
         Returns
         -------
         array
-            `n_time_steps`-element array, with intensities to be recorded
-            in a LPA program for dose `dose_idx` over time.
+            Array with `n_time_steps` intensities to be recorded in a
+            LPA program for dose `dose_idx`.
 
         """
-        if self.n_time_steps is None:
-            raise ValueError('number of time steps should be indicated')
-        # Get sampling time
-        ts = self.sampling_time_steps[dose_idx]
-        # Assemble intensity sequence
-        intensity = numpy.ones(self.n_time_steps)*self.signal_init
-        if (ts > 0) and (ts <= self.n_time_steps):
-            # Case 1: sampling time less or equal to total time
-            # Copy light signal up to ts to the end of intensity array
-            intensity[-ts:] = self.signal[0: ts]
-        elif (ts > 0) and (ts > self.n_time_steps):
-            # Case 2: sampling time greater than total time
-            # Copy a self.n_time_steps-long fragment of signal up to ts.
-            intensity = self.signal[ts - self.n_time_steps:ts]
-
-        return intensity
+        return self.intensities[:, dose_idx]

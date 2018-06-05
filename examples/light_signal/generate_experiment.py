@@ -28,16 +28,18 @@ sampling_times = [  0,   5,  10,  15,  20,  25,
                    90, 100, 110, 120, 130, 140,
                   150, 160, 170, 180, 190, 200,]
 # 520nm (green) light: step
-light_520 = lpadesign.inducer.StaggeredLightSignal(name='520nm Light',
-                                                   led_layout='520-2-KB',
-                                                   led_channel=0,
-                                                   id_prefix='G')
-light_520.sampling_time_steps = sampling_times
-light_520.set_step(initial=0, final=50)
-# Light program time in minutes
-# Only needs to be specified in one light inducer
-light_520.n_time_steps = 8*60
-
+light_520 = lpadesign.inducer.LightSignal(name='520nm Light',
+                                          led_layout='520-2-KB',
+                                          led_channel=0,
+                                          id_prefix='G')
+light_520.set_staggered_signal(
+    signal=numpy.ones(8*60)*50,
+    signal_init=0,
+    sampling_time_steps=numpy.array([69,  6, 21, 63, 30, 36,
+                                     54, 45, 18, 12, 42, 66,
+                                     60, 51,  0,  3, 39, 33,
+                                     24, 27, 15, 48, 57,  9]),
+    n_time_steps=8*60)
 exp.add_inducer(light_520)
 
 # 660nm (red) light: constant

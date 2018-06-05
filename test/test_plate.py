@@ -1436,20 +1436,22 @@ class TestLPAPlate(unittest.TestCase):
         # Make plate
         p = lpadesign.plate.LPAPlate(name='P1')
         p.resources['LPA'] = ['Jennie']
+
         # Make 2 inducers and add them.
-        light_520 = lpadesign.inducer.StaggeredLightSignal(
+        light_520 = lpadesign.inducer.LightSignal(
             name='520nm Light',
             led_layout='520-2-KB',
             led_channel=0,
             id_prefix='G')
-        # Write sampling times, signal, etc
-        light_520.signal = self.signal
-        light_520.signal_init = self.signal_init
-        light_520.n_time_steps = self.n_time_steps
-        light_520.sampling_time_steps = numpy.array([69,  6, 21, 63, 30, 36,
-                                                     54, 45, 18, 12, 42, 66,
-                                                     60, 51,  0,  3, 39, 33,
-                                                     24, 27, 15, 48, 57,  9])
+        # Generate staggered signal
+        light_520.set_staggered_signal(
+            signal=self.signal,
+            signal_init=self.signal_init,
+            sampling_time_steps=numpy.array([69,  6, 21, 63, 30, 36,
+                                             54, 45, 18, 12, 42, 66,
+                                             60, 51,  0,  3, 39, 33,
+                                             24, 27, 15, 48, 57,  9]),
+            n_time_steps=self.n_time_steps)
         p.apply_inducer(light_520, 'wells')
 
         light_660 = lpadesign.inducer.LightInducer(
@@ -1645,6 +1647,7 @@ class TestLPAPlate(unittest.TestCase):
         # Make plate
         p = lpadesign.plate.LPAPlate(name='P1')
         p.resources['LPA'] = ['Jennie']
+
         # Make 2 inducers and add them.
         light_520 = lpadesign.inducer.LightInducer(
             name='520nm Light',
@@ -1654,16 +1657,17 @@ class TestLPAPlate(unittest.TestCase):
         light_520.intensities = [0, 1, 2, 3, 4, 5]
         p.apply_inducer(light_520, 'rows')
 
-        light_660 = lpadesign.inducer.StaggeredLightSignal(
+        # Add staggered signal
+        light_660 = lpadesign.inducer.LightSignal(
             name='660nm Light',
             led_layout='660-LS',
             led_channel=1,
             id_prefix='R')
-        # Write sampling times, signal, etc
-        light_660.signal = self.signal
-        light_660.signal_init = self.signal_init
-        light_660.n_time_steps = self.n_time_steps
-        light_660.sampling_time_steps = numpy.array([ 72.,  20.,  30.,  10.])
+        light_660.set_staggered_signal(
+            signal=self.signal,
+            signal_init=self.signal_init,
+            sampling_time_steps=numpy.array([ 72,  20,  30,  10]),
+            n_time_steps=self.n_time_steps)
         p.apply_inducer(light_660, 'cols')
 
         # Attempt to generate rep setup files
@@ -4578,15 +4582,12 @@ class TestLPAPlateArray(unittest.TestCase):
                               'Kirk',
                               'Picard']
         # Make 2 inducers and add them.
-        light_520 = lpadesign.inducer.StaggeredLightSignal(
+        light_520 = lpadesign.inducer.LightSignal(
             name='520nm Light',
             led_layout='520-2-KB',
             led_channel=0,
             id_prefix='G')
-        light_520.signal = self.signal
-        light_520.signal_init = self.signal_init
-        light_520.n_time_steps = self.n_time_steps
-        light_520.sampling_time_steps = numpy.array(
+        sampling_time_steps = numpy.array(
             [ 97,  31,   8,  68,  12,  13,  19,  24,  99,  32,  57, 136,  94,  38, 114,  78, 140,  76,
               56,  62,  15,  63,  89,  54,  48,  33,   6, 141,  43, 134,  59,  75, 110,  46,  81,  42,
              112, 125,  22, 129,  10,  70,  93,  25, 105,  58, 111, 107,  40,  83,  44,   3, 138,  69,
@@ -4595,6 +4596,11 @@ class TestLPAPlateArray(unittest.TestCase):
               45,  27,  61,   9, 118,  41,  65, 137,  34,  37,  51, 124, 119, 133,  18,  60, 102,  88,
                4,  96,   0, 130,  47,  84, 108, 117, 100, 120, 104, 116,  36,   7,  77,  39,  71,  49,
               82,  28,  66, 103, 127, 142,  72,  90,  95,  21,  98,  20, 139,   2, 115,  86,  29,  73])
+        light_520.set_staggered_signal(
+            signal=self.signal,
+            signal_init=self.signal_init,
+            sampling_time_steps=sampling_time_steps,
+            n_time_steps=self.n_time_steps)
         p.apply_inducer(light_520, 'wells')
 
         light_660 = lpadesign.inducer.LightInducer(
@@ -5120,17 +5126,17 @@ class TestLPAPlateArray(unittest.TestCase):
                                               4, 15, 17,  5, 20, 13])
         p.apply_inducer(light_520, 'rows')
 
-        light_660 = lpadesign.inducer.StaggeredLightSignal(
+        light_660 = lpadesign.inducer.LightSignal(
             name='660nm Light',
             led_layout='660-LS',
             led_channel=1,
             id_prefix='R')
-        # Write sampling times, signal, etc
-        light_660.signal = self.signal
-        light_660.signal_init = self.signal_init
-        light_660.n_time_steps = self.n_time_steps
-        light_660.sampling_time_steps = numpy.array([ 34, 155, 200, 164,
-                                                      63,  21, 102, 183])
+        light_660.set_staggered_signal(
+            signal=self.signal,
+            signal_init=self.signal_init,
+            sampling_time_steps=numpy.array([ 34, 155, 200, 164,
+                                              63,  21, 102, 183]),
+            n_time_steps=self.n_time_steps)
         p.apply_inducer(light_660, 'cols')
 
         # Attempt to generate rep setup files
